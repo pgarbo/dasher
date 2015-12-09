@@ -53,7 +53,11 @@ namespace MsgPack.Strict
 
         public object Deserialise(byte[] bytes)
         {
-            var unpacker = Unpacker.Create(new MemoryStream(bytes));
+            return Deserialise(Unpacker.Create(new MemoryStream(bytes)));
+        }
+
+        public object Deserialise(Unpacker unpacker)
+        {
             return _func(unpacker);
         }
 
@@ -236,9 +240,15 @@ namespace MsgPack.Strict
 
                     // Read value
                     // The unpacker method expects, on the stack, the unpacker and the address of the value to store to
-                    ilg.Emit(OpCodes.Ldarg_0); // unpacker
-                    ilg.Emit(OpCodes.Ldloca, valueLocals[parameterIndex]);
                     var unpackerMethod = ValueUnpacker.GetUnpackerMethodForType(parameters[parameterIndex].ParameterType);
+                    ilg.Emit(OpCodes.Ldarg_0); // unpacker
+                    if (unpackerMethod.GetParameters().Length == 3)
+                    {
+                        // Method has three args, meaning the second one is the target type
+                        ilg.Emit(OpCodes.Ldtoken, type);
+                        ilg.Emit(OpCodes.Call, typeof(Type).GetMethod("GetTypeFromHandle"));
+                    }
+                    ilg.Emit(OpCodes.Ldloca, valueLocals[parameterIndex]);
                     ilg.Emit(OpCodes.Call, unpackerMethod);
 
                     // If the unpacker method failed (returned false), throw

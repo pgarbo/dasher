@@ -48,6 +48,10 @@ namespace MsgPack.Strict
             MethodInfo methodInfo;
             if (_typeGetters.TryGetValue(type, out methodInfo))
                 return methodInfo;
+
+            if (type.IsClass && type.GetConstructors(BindingFlags.Public | BindingFlags.Instance).Length == 1)
+                return typeof(ValueUnpacker).GetMethod(nameof(TryReadType), BindingFlags.Static | BindingFlags.Public);
+
             throw new NotImplementedException($"No support yet exists for reading values of type {type} from MsgPack data");
         }
 
@@ -73,6 +77,13 @@ namespace MsgPack.Strict
                 return false;
             }
             return decimal.TryParse(s, out value);
+        }
+
+        public static bool TryReadType(Unpacker unpacker, Type type, out object value)
+        {
+            var serialiser = StrictDeserialiser.Get(type);
+            value = serialiser.Deserialise(unpacker);
+            return true;
         }
 
         #endregion
