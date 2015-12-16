@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
@@ -68,10 +69,7 @@ namespace MsgPack.Strict
             if (type.IsPrimitive)
                 throw new Exception("TEST THIS CASE 1");
 
-            var ctors = type.GetConstructors(BindingFlags.Public | BindingFlags.DeclaredOnly | BindingFlags.Instance);
-            if (ctors.Length != 1)
-                throw new StrictDeserialisationException("Type must have a single public constructor.", type);
-            var ctor = ctors[0];
+            var ctor = GetDeserializationConstructor(type);
 
             var parameters = ctor.GetParameters();
 
@@ -242,10 +240,12 @@ namespace MsgPack.Strict
                     // The unpacker method expects, on the stack, the unpacker and the address of the value to store to
                     ilg.Emit(OpCodes.Ldarg_0); // unpacker
                     ilg.Emit(OpCodes.Ldloca, valueLocals[parameterIndex]);
-                    var unpackerMethod = ValueUnpacker.GetUnpackerMethodForType(parameters[parameterIndex].ParameterType);
-                    if (unpackerMethod.Name == ValueUnpacker.TryReadComplexName)
+                    var parameterType = parameters[parameterIndex].ParameterType;
+                    var unpackerMethod = ValueUnpacker.GetUnpackerMethodForType(parameterType);
+                    if (unpackerMethod.IsTryReadGenericListMethod())
                     {
-                        unpackerMethod = unpackerMethod.MakeGenericMethod(parameters[parameterIndex].ParameterType);
+                        //TODO Emit code for reading arrays. Currently using unpackermethod for POC - works but slower!
+                        unpackerMethod = unpackerMethod.MakeGenericMethod(parameterType.GenericTypeArguments[0]);
                     }
                     ilg.Emit(OpCodes.Call, unpackerMethod);
 
@@ -342,6 +342,42 @@ namespace MsgPack.Strict
 
             // Return a delegate that performs the above operations
             return (Func<Unpacker, object>)method.CreateDelegate(typeof(Func<Unpacker, object>));
+        }
+        //TODO complete and move to utils
+        private static ConstructorInfo GetDeserializationConstructor(Type type)
+        {
+            type = GetConcreteType(type);
+            var ctors = type.GetConstructors(BindingFlags.Public | BindingFlags.DeclaredOnly | BindingFlags.Instance);
+            if (ctors.Length == 0)
+                throw new StrictDeserialisationException("This type does not have public constructor.", type);
+            //TODO Handle constructor for System types
+            if (type == typeof(List<>))
+            {
+                return ctors[2]; //TODO better way
+            }
+            if (ctors.Length > 1)
+                throw new StrictDeserialisationException("Type must have a single public constructor.", type);            
+            var ctor = ctors[0];
+            return ctor;
+        }
+
+        //TODO move to utils
+        private static Dictionary<RuntimeTypeHandle, Type> _concreteTypeMaps = new Dictionary<RuntimeTypeHandle, Type>()
+        {
+            { typeof(IReadOnlyCollection<>).TypeHandle, typeof(List<>) },
+            { typeof(IList<>).TypeHandle, typeof(List<>) },
+            { typeof(IEnumerable<>).TypeHandle, typeof(List<>) },
+            { typeof(ICollection<>).TypeHandle, typeof(List<>) },
+            { typeof(IReadOnlyList<>).TypeHandle, typeof(List<>) },
+        };
+        //TODO move to utils
+        private static Type GetConcreteType(Type type)
+        {
+            if (!type.IsAbstract)
+                return type;
+            Type concreteType;
+            _concreteTypeMaps.TryGetValue(type.GetGenericTypeDefinition().TypeHandle, out concreteType);
+            return concreteType;
         }
 
         private static void StoreValue(ILGenerator ilg, object value)

@@ -1,4 +1,7 @@
 ﻿using System.Collections.Generic;
+using System.IO;
+using System.Runtime.InteropServices.WindowsRuntime;
+using MsgPack.Serialization;
 using Xunit;
 
 namespace MsgPack.Strict.Tests
@@ -136,6 +139,28 @@ namespace MsgPack.Strict.Tests
 
             public string Name { get; }
             public IReadOnlyList<int> Scores { get; }
+        }
+
+        public sealed class UserScoreListComplex
+        {
+            public UserScoreListComplex(string name, List<UserScoreList> scores)
+            {
+                Name = name;
+                Scores = scores;
+            }
+            public string Name { get; }
+            public List<UserScoreList> Scores { get; }
+        }
+
+        public sealed class UserScoreListComplexComplex
+        {
+            public UserScoreListComplexComplex(string name, List<UserScoreListComplex> scores)
+            {
+                Name = name;
+                Scores = scores;
+            }
+            public string Name { get; }
+            public List<UserScoreListComplex> Scores { get; }
         }
 
         #endregion
@@ -343,7 +368,98 @@ namespace MsgPack.Strict.Tests
             var after = StrictDeserialiser.Get<UserScoreList>().Deserialise(bytes);
 
             Assert.Equal("Bob", after.Name);
-            Assert.Equal(new[] {1, 2, 3}, after.Scores);
+            Assert.Equal(1, after.Scores[0]);
+            Assert.Equal(2, after.Scores[1]);
+            Assert.Equal(3, after.Scores[2]);
+        }
+
+        [Fact]
+        public void HandlesListOfComplexObject()
+        {
+            var bytes = TestUtil.PackBytes(packer => packer.PackMapHeader(2)
+                .Pack("Name").Pack("Bob")
+                .Pack("Scores").PackArrayHeader(3)
+                    .PackMapHeader(2)
+                    .Pack("Name").Pack("Bob1")
+                    .Pack("Scores").PackArrayHeader(0)
+                    .PackMapHeader(2)
+                    .Pack("Name").Pack("Bob2")
+                    .Pack("Scores").PackArrayHeader(0)
+                    .PackMapHeader(2)
+                    .Pack("Name").Pack("Bob3")
+                    .Pack("Scores").PackArrayHeader(0));
+
+            var after = StrictDeserialiser.Get<UserScoreListComplex>().Deserialise(bytes);
+            Assert.Equal("Bob", after.Name);
+            Assert.Equal("Bob1", after.Scores[0].Name);
+            Assert.Equal("Bob2", after.Scores[1].Name);
+            Assert.Equal("Bob3", after.Scores[2].Name);
+        }
+
+        [Fact]
+        public void HandlesListOfComplexObject2()
+        {
+            var bytes = TestUtil.PackBytes(packer => packer.PackMapHeader(2)
+                .Pack("Name").Pack("Bob")
+                .Pack("Scores").PackArrayHeader(3)
+                    .PackMapHeader(2)
+                    .Pack("Name").Pack("Bob1")
+                    .Pack("Scores").PackArrayHeader(3)
+                        .Pack(1).Pack(2).Pack(3)
+                    .PackMapHeader(2)
+                    .Pack("Name").Pack("Bob2")
+                    .Pack("Scores").PackArrayHeader(0)
+                    .PackMapHeader(2)
+                    .Pack("Name").Pack("Bob3")
+                    .Pack("Scores").PackArrayHeader(0));
+
+            var after = StrictDeserialiser.Get<UserScoreListComplex>().Deserialise(bytes);
+            Assert.Equal("Bob", after.Name);
+            Assert.Equal("Bob1", after.Scores[0].Name);
+            Assert.Equal(1, after.Scores[0].Scores[0]);
+            Assert.Equal(2, after.Scores[0].Scores[1]);
+            Assert.Equal(3, after.Scores[0].Scores[2]);
+            Assert.Equal("Bob2", after.Scores[1].Name);
+            Assert.Equal("Bob3", after.Scores[2].Name);
+        }
+
+        [Fact]
+        public void HandlesListOfComplexObject3()
+        {
+            var bytes = TestUtil.PackBytes(packer => packer.PackMapHeader(2)
+                .Pack("Name").Pack("Bob")
+                .Pack("Scores").PackArrayHeader(3)
+                    .PackMapHeader(2)
+                    .Pack("Name").Pack("Bob1")
+                    .Pack("Scores").PackArrayHeader(3)
+                        .PackMapHeader(2)
+                        .Pack("Name").Pack("Bob11")
+                        .Pack("Scores").PackArrayHeader(3)
+                            .Pack(1).Pack(2).Pack(3)
+                        .PackMapHeader(2)
+                        .Pack("Name").Pack("Bob12")
+                        .Pack("Scores").PackArrayHeader(0)
+                        .PackMapHeader(2)
+                        .Pack("Name").Pack("Bob13")
+                        .Pack("Scores").PackArrayHeader(0)
+                    .PackMapHeader(2)
+                    .Pack("Name").Pack("Bob2")
+                    .Pack("Scores").PackArrayHeader(0)
+                    .PackMapHeader(2)
+                    .Pack("Name").Pack("Bob3")
+                    .Pack("Scores").PackArrayHeader(0));
+
+            var after = StrictDeserialiser.Get<UserScoreListComplexComplex>().Deserialise(bytes);
+            Assert.Equal("Bob", after.Name);
+            Assert.Equal("Bob1", after.Scores[0].Name);
+            Assert.Equal("Bob11", after.Scores[0].Scores[0].Name);
+            Assert.Equal(1, after.Scores[0].Scores[0].Scores[0]);
+            Assert.Equal(2, after.Scores[0].Scores[0].Scores[1]);
+            Assert.Equal(3, after.Scores[0].Scores[0].Scores[2]);
+            Assert.Equal("Bob12", after.Scores[0].Scores[1].Name);
+            Assert.Equal("Bob13", after.Scores[0].Scores[2].Name);
+            Assert.Equal("Bob2", after.Scores[1].Name);
+            Assert.Equal("Bob3", after.Scores[2].Name);
         }
     }
 }

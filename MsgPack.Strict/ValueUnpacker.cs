@@ -23,11 +23,23 @@ namespace MsgPack.Strict
         mTypeHash[typeof(float)]=OpCodes.Ldind_R4;
         */
         public static string TryReadComplexName = nameof(TryReadComplex);
+        public static string TryReadListName = nameof(TryReadList);
+        public static string TryReadIReadonlyListName = nameof(TryReadIReadOnlyList);
+
+        public static bool IsTryReadGenericListMethod(this MethodInfo method)
+        {
+            return method.Name == TryReadListName || method.Name == TryReadIReadonlyListName;
+        }
+
+        public static bool IsTryReadComplexObjectMethod(this MethodInfo method)
+        {
+            return method.Name == TryReadComplexName;
+        }
+
         private static readonly Dictionary<Type, MethodInfo> _typeGetters = new Dictionary<Type, MethodInfo>
         {
             // TODO DateTime, TimeSpan
-            // TODO IReadOnlyList<T>
-            // TODO complex types
+            // TODO IReadOnlyList<T>, etc.
             {typeof(sbyte),   typeof(ValueUnpacker).GetMethod(nameof(TryReadSByte),   BindingFlags.Static | BindingFlags.Public)},
             {typeof(byte),    typeof(ValueUnpacker).GetMethod(nameof(TryReadByte),    BindingFlags.Static | BindingFlags.Public)},
             {typeof(short),   typeof(ValueUnpacker).GetMethod(nameof(TryReadShort),   BindingFlags.Static | BindingFlags.Public)},
@@ -40,7 +52,9 @@ namespace MsgPack.Strict
             {typeof(double),  typeof(ValueUnpacker).GetMethod(nameof(TryReadDouble),  BindingFlags.Static | BindingFlags.Public)},
             {typeof(bool),    typeof(ValueUnpacker).GetMethod(nameof(TryReadBool),    BindingFlags.Static | BindingFlags.Public)},
             {typeof(string),  typeof(ValueUnpacker).GetMethod(nameof(TryReadString),  BindingFlags.Static | BindingFlags.Public)},
-            {typeof(decimal), typeof(ValueUnpacker).GetMethod(nameof(TryReadDecimal), BindingFlags.Static | BindingFlags.Public)}
+            {typeof(decimal), typeof(ValueUnpacker).GetMethod(nameof(TryReadDecimal), BindingFlags.Static | BindingFlags.Public)},
+            {typeof(IReadOnlyList<>), typeof(ValueUnpacker).GetMethod(nameof(TryReadIReadOnlyList), BindingFlags.Static | BindingFlags.Public) },
+            {typeof(List<>), typeof(ValueUnpacker).GetMethod(nameof(TryReadList), BindingFlags.Static | BindingFlags.Public) }
         };
 
         public static MethodInfo GetUnpackerMethodForType(Type type)
@@ -48,8 +62,20 @@ namespace MsgPack.Strict
             MethodInfo methodInfo;
             if (_typeGetters.TryGetValue(type, out methodInfo))
                 return methodInfo;
+            var genericType = GetGenericType(type);
+            if (genericType != null)
+                if (_typeGetters.TryGetValue(genericType, out methodInfo))
+                    return methodInfo/*.MakeGenericMethod(type.GenericTypeArguments[0])*/;
+            var complexMethod =  typeof(ValueUnpacker).GetMethod(nameof(TryReadComplex), BindingFlags.Static | BindingFlags.Public);
+            return complexMethod.MakeGenericMethod(type);
+        }
 
-            return typeof (ValueUnpacker).GetMethod(nameof(TryReadComplex), BindingFlags.Static | BindingFlags.Public);
+
+        private static Type GetGenericType(Type type)
+        {
+            if (type.IsGenericType)
+                return type.GetGenericTypeDefinition();
+            return null;
         }
 
         public static bool TryReadSByte(Unpacker unpacker, out sbyte value) => unpacker.ReadSByte(out value);
@@ -79,6 +105,34 @@ namespace MsgPack.Strict
         public static bool TryReadComplex<T>(Unpacker unpacker, out T value)
         {
             value = (T)StrictDeserialiser.Get(typeof(T)).Deserialise(unpacker);
+            return true;
+        }
+
+        public static bool TryReadIReadOnlyList<T>(Unpacker unpacker, out IReadOnlyList<T> value)
+        {
+            List<T> val;
+            var res = TryReadList<T>(unpacker, out val);
+            value = val;
+            return res;
+        }
+
+        public static bool TryReadList<T>(Unpacker unpacker, out List<T> value)
+        {
+            long arrLen = 0;
+            //MessagePackObject mo;
+            //var mp = unpacker.ReadObject(out mo);
+            //if (unpacker.IsArrayHeader)
+            //    arrLen = mo.AsInt64();
+            unpacker.ReadArrayLength(out arrLen);
+            value = new List<T>();
+            var unpackerMethod = GetUnpackerMethodForType(typeof(T));
+            for (int i = 0; i < arrLen; i++)
+            {
+                var parameters = new object[] { unpacker, null };
+                unpackerMethod.Invoke(null, parameters);
+                var readValue = (T)parameters[1];
+                value.Add(readValue);
+            }
             return true;
         }
 
