@@ -556,6 +556,56 @@ namespace MsgPack.Strict.Tests
             Assert.Equal(2, after[2][1]);
             Assert.Equal(3, after[2][2]);
         }
+
+        [Fact]
+        public void HandlesSingleListOfArray()
+        {
+            var bytes = TestUtil.PackBytes(packer => packer.PackArrayHeader(3)
+                    .PackArrayHeader(3)
+                        .Pack(1).Pack(2).Pack(3)
+                    .PackArrayHeader(3)
+                        .Pack(1).Pack(2).Pack(3)
+                    .PackArrayHeader(3)
+                        .Pack(1).Pack(2).Pack(3)
+            );
+
+            var after = StrictDeserialiser.Get<List<int[]>>().Deserialise(bytes);
+
+            Assert.Equal(1, after[0][0]);
+            Assert.Equal(2, after[0][1]);
+            Assert.Equal(3, after[0][2]);
+            Assert.Equal(1, after[1][0]);
+            Assert.Equal(2, after[1][1]);
+            Assert.Equal(3, after[1][2]);
+            Assert.Equal(1, after[2][0]);
+            Assert.Equal(2, after[2][1]);
+            Assert.Equal(3, after[2][2]);
+        }
+
+        [Fact]
+        public void HandlesSingleArrayOfList()
+        {
+            var bytes = TestUtil.PackBytes(packer => packer.PackArrayHeader(3)
+                    .PackArrayHeader(3)
+                        .Pack(1).Pack(2).Pack(3)
+                    .PackArrayHeader(3)
+                        .Pack(1).Pack(2).Pack(3)
+                    .PackArrayHeader(3)
+                        .Pack(1).Pack(2).Pack(3)
+            );
+
+            var after = StrictDeserialiser.Get<List<int>[]>().Deserialise(bytes);
+
+            Assert.Equal(1, after[0][0]);
+            Assert.Equal(2, after[0][1]);
+            Assert.Equal(3, after[0][2]);
+            Assert.Equal(1, after[1][0]);
+            Assert.Equal(2, after[1][1]);
+            Assert.Equal(3, after[1][2]);
+            Assert.Equal(1, after[2][0]);
+            Assert.Equal(2, after[2][1]);
+            Assert.Equal(3, after[2][2]);
+        }
         #endregion
         #region Arrays
         [Fact]

@@ -46,7 +46,7 @@ namespace MsgPack.Strict
             type = type.GetConcreteType();
             var ctors = type.GetConstructors(BindingFlags.Public | BindingFlags.DeclaredOnly | BindingFlags.Instance);
             if (ctors.Length == 0)
-                throw new StrictDeserialisationException("This type does not have public constructor.", type);
+                throw new StrictDeserialisationException("Type must have a single public constructor.", type);
             //TODO Handle constructor for System types
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
             {
