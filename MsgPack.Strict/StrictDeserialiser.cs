@@ -80,7 +80,7 @@ namespace MsgPack.Strict
             var method = new DynamicMethod(
                 $"Deserialiser{type.Name}",
                 typeof(object),
-                new[] {typeof(Unpacker)});
+                new[] { typeof(Unpacker) });
 
             var ilg = method.GetILGenerator();
 
@@ -122,7 +122,7 @@ namespace MsgPack.Strict
             {
                 ilg.Emit(OpCodes.Ldtoken, type);
                 ilg.Emit(OpCodes.Call, typeof(Type).GetMethod("GetTypeFromHandle"));
-                ilg.Emit(OpCodes.Newobj, typeof(StrictDeserialisationException).GetConstructor(new[] {typeof(string), typeof(Type)}));
+                ilg.Emit(OpCodes.Newobj, typeof(StrictDeserialisationException).GetConstructor(new[] { typeof(string), typeof(Type) }));
                 ilg.Emit(OpCodes.Throw);
             };
 
@@ -206,7 +206,7 @@ namespace MsgPack.Strict
                     ilg.Emit(OpCodes.Ldloc, key);
                     ilg.Emit(OpCodes.Ldstr, parameters[parameterIndex].Name);
                     ilg.Emit(OpCodes.Ldc_I4_5);
-                    ilg.Emit(OpCodes.Callvirt, typeof(string).GetMethod("Equals", new[] {typeof(string), typeof(StringComparison)}));
+                    ilg.Emit(OpCodes.Callvirt, typeof(string).GetMethod("Equals", new[] { typeof(string), typeof(StringComparison) }));
 
                     // If the key doesn't match this property, go to the next block
                     ilg.Emit(OpCodes.Brfalse, nextLabel.Value);
@@ -236,30 +236,37 @@ namespace MsgPack.Strict
                         ilg.Emit(OpCodes.Stloc, valueSetLocals[parameterIndex]);
                     }
 
-                    // Read value
-                    // The unpacker method expects, on the stack, the unpacker and the address of the value to store to
-                    ilg.Emit(OpCodes.Ldarg_0); // unpacker
-                    ilg.Emit(OpCodes.Ldloca, valueLocals[parameterIndex]);
+
                     var parameterType = parameters[parameterIndex].ParameterType;
-                    var unpackerMethod = ValueUnpacker.GetUnpackerMethodForType(parameterType);
-                    if (unpackerMethod.IsTryReadGenericListMethod())
-                    {
-                        //TODO Emit code for reading arrays. Currently using unpackermethod for POC - works but slower!
-                        unpackerMethod = unpackerMethod.MakeGenericMethod(parameterType.GenericTypeArguments[0]);
+                    if (IsGenericCollection(parameterType) || IsArray(parameterType))
+                    {                    
+                        CollectionBuilder(parameterType, ilg, valueLocals, parameterIndex);
                     }
-                    ilg.Emit(OpCodes.Call, unpackerMethod);
-
-                    // If the unpacker method failed (returned false), throw
-                    var typeGetterSuccess = ilg.DefineLabel();
-                    ilg.Emit(OpCodes.Brtrue, typeGetterSuccess);
+                    else
                     {
-                        // TODO throw better exception
-                        ilg.Emit(OpCodes.Ldstr, "TEST THIS CASE 4");
-                        ilg.Emit(OpCodes.Newobj, typeof(Exception).GetConstructor(new[] {typeof(string)}));
-                        ilg.Emit(OpCodes.Throw);
-                    }
-                    ilg.MarkLabel(typeGetterSuccess);
+                        // Read value
+                        // The unpacker method expects, on the stack, the unpacker and the address of the value to store to
+                        ilg.Emit(OpCodes.Ldarg_0); // unpacker
+                        ilg.Emit(OpCodes.Ldloca, valueLocals[parameterIndex]);
+                        var unpackerMethod = ValueUnpacker.GetUnpackerMethodForType(parameterType);
+                        //if (unpackerMethod.IsTryReadGenericListMethod())
+                        //{
+                        //    //TODO Emit code for reading arrays. Currently using unpackermethod for POC - works but slower!
+                        //    unpackerMethod = unpackerMethod.MakeGenericMethod(parameterType.GenericTypeArguments[0]);
+                        //}
+                        ilg.Emit(OpCodes.Call, unpackerMethod);
 
+                        // If the unpacker method failed (returned false), throw
+                        var typeGetterSuccess = ilg.DefineLabel();
+                        ilg.Emit(OpCodes.Brtrue, typeGetterSuccess);
+                        {
+                            // TODO throw better exception
+                            ilg.Emit(OpCodes.Ldstr, "TEST THIS CASE 4");
+                            ilg.Emit(OpCodes.Newobj, typeof(Exception).GetConstructor(new[] { typeof(string) }));
+                            ilg.Emit(OpCodes.Throw);
+                        }
+                        ilg.MarkLabel(typeGetterSuccess);
+                    }
                     ilg.Emit(OpCodes.Br, lblEndIfChain);
                 }
 
@@ -269,7 +276,7 @@ namespace MsgPack.Strict
                 // If we got here then the property was not recognised. Throw.
                 ilg.Emit(OpCodes.Ldstr, "Encountered unexpected field \"{0}\".");
                 ilg.Emit(OpCodes.Ldloc, key);
-                ilg.Emit(OpCodes.Call, typeof(string).GetMethod("Format", new[] {typeof(string), typeof(object)}));
+                ilg.Emit(OpCodes.Call, typeof(string).GetMethod("Format", new[] { typeof(string), typeof(object) }));
                 throwException();
 
                 ilg.MarkLabel(lblEndIfChain);
@@ -343,6 +350,206 @@ namespace MsgPack.Strict
             // Return a delegate that performs the above operations
             return (Func<Unpacker, object>)method.CreateDelegate(typeof(Func<Unpacker, object>));
         }
+
+        private static void ListBuilder(Type parameterType, ILGenerator ilg, LocalBuilder[] valueLocals, int parameterIndex)
+        {
+            Type genericType = null;
+            if (IsGenericCollection(parameterType))
+                genericType = parameterType.GenericTypeArguments[0];
+            else if (IsArray(parameterType))
+                genericType = parameterType.GetElementType();
+            var genericunpackerMethod = ValueUnpacker.GetUnpackerMethodForType(genericType);
+            //long arrLen;
+            var arrLen = ilg.DeclareLocal(typeof(long));
+            //unpacker.ReadArrayLength(out arrLen);
+            ilg.Emit(OpCodes.Ldarg_0); // unpacker
+            ilg.Emit(OpCodes.Ldloca, arrLen);
+            ilg.Emit(OpCodes.Callvirt, typeof(Unpacker).GetMethod("ReadArrayLength"));
+            ilg.Emit(OpCodes.Pop);
+            //var value = new List<int>();
+            var listType = typeof(List<>);
+            var listOfType = listType.MakeGenericType(genericType);
+            var listof = ilg.DeclareLocal(listOfType);
+            var listCtor = listOfType.GetConstructor(new Type[0]);
+            ilg.Emit(OpCodes.Newobj, listCtor);
+            ilg.Emit(OpCodes.Stloc, listof);
+
+            //for (int i = 0; i < arrLen; i++)
+            var arrIndex = ilg.DeclareLocal(typeof(int));
+            ilg.Emit(OpCodes.Ldc_I4_0);
+            ilg.Emit(OpCodes.Stloc, arrIndex);
+            var arrayLoopTest = ilg.DefineLabel();
+            var arrayLoopStart = ilg.DefineLabel();
+            ilg.Emit(OpCodes.Br_S, arrayLoopTest);
+            //{
+            ilg.MarkLabel(arrayLoopStart);
+
+            var readValue = ilg.DeclareLocal(genericType);
+            ilg.Emit(OpCodes.Ldarg_0);
+            ilg.Emit(OpCodes.Ldloca, readValue);
+            ilg.Emit(OpCodes.Call, genericunpackerMethod);
+            ilg.Emit(OpCodes.Pop); //TODO TEST RESULT
+            //    value.Add(readValue);
+            ilg.Emit(OpCodes.Ldloc, listof);
+            ilg.Emit(OpCodes.Ldloc, readValue);
+            ilg.Emit(OpCodes.Callvirt, listOfType.GetMethod("Add", new[] { genericType }));
+            //}
+            //loop increment
+            ilg.Emit(OpCodes.Ldloc, arrIndex);
+            ilg.Emit(OpCodes.Ldc_I4_1);
+            ilg.Emit(OpCodes.Add);
+            ilg.Emit(OpCodes.Stloc, arrIndex);
+            //for condition
+            ilg.MarkLabel(arrayLoopTest);
+            ilg.Emit(OpCodes.Ldloc, arrIndex);
+            ilg.Emit(OpCodes.Conv_I8);
+            ilg.Emit(OpCodes.Ldloc, arrLen);
+            ilg.Emit(OpCodes.Clt);
+            ilg.Emit(OpCodes.Brtrue, arrayLoopStart);
+            //after loop
+            ilg.Emit(OpCodes.Ldloc, listof);
+            ilg.Emit(OpCodes.Stloc, valueLocals[parameterIndex]);
+        }
+        private static void CollectionBuilder(Type parameterType, ILGenerator ilg, LocalBuilder[] valueLocals, int parameterIndex)
+        {
+            var isList = IsList(parameterType);
+            Type genericType = null;
+            if (IsGenericCollection(parameterType))
+                genericType = parameterType.GenericTypeArguments[0];
+            else if (IsArray(parameterType))
+                genericType = parameterType.GetElementType();
+            var genericunpackerMethod = ValueUnpacker.GetUnpackerMethodForType(genericType);
+            //declare long arrLen;
+            var arrLen = ilg.DeclareLocal(typeof(long));
+            //unpacker.ReadArrayLength(out arrLen);
+            ilg.Emit(OpCodes.Ldarg_0); // unpacker
+            ilg.Emit(OpCodes.Ldloca, arrLen);
+            ilg.Emit(OpCodes.Callvirt, typeof(Unpacker).GetMethod("ReadArrayLength"));
+            ilg.Emit(OpCodes.Pop); //TODO RESULT
+
+            var listType = typeof(List<>);
+            var listOfType = listType.MakeGenericType(genericType);
+            var listof = ilg.DeclareLocal(listOfType);
+            var arr = ilg.DeclareLocal(genericType.MakeArrayType());
+            if (isList) //todo remove, use arr onlys
+            {
+                //listof = new List<int>();
+                var listCtor = listOfType.GetConstructor(new Type[0]);
+                ilg.Emit(OpCodes.Newobj, listCtor);
+                ilg.Emit(OpCodes.Stloc, listof);
+            }
+            else
+            {
+                //arr = new T[arrlen]
+                ilg.Emit(OpCodes.Ldloc, arrLen);
+                ilg.Emit(OpCodes.Conv_Ovf_I);
+                ilg.Emit(OpCodes.Newarr, genericType);
+                ilg.Emit(OpCodes.Stloc, arr);
+            }
+            //create for (int i = 0; i < arrLen; i++)
+            var arrIndex = ilg.DeclareLocal(typeof(int));
+            ilg.Emit(OpCodes.Ldc_I4_0);
+            ilg.Emit(OpCodes.Stloc, arrIndex);
+            var arrayLoopTest = ilg.DefineLabel();
+            var arrayLoopStart = ilg.DefineLabel();
+            //loop, jump to test condition
+            ilg.Emit(OpCodes.Br_S, arrayLoopTest);
+            //{ loop start
+            ilg.MarkLabel(arrayLoopStart);
+            //declare readValue
+            var readValue = ilg.DeclareLocal(genericType);
+            //genericunpack(unpacker, out readValue)
+            ilg.Emit(OpCodes.Ldarg_0);
+            ilg.Emit(OpCodes.Ldloca, readValue);
+            ilg.Emit(OpCodes.Call, genericunpackerMethod);
+            ilg.Emit(OpCodes.Pop); //TODO TEST RESULT
+            
+            if (isList)
+            {
+                // value.Add(readValue);
+                ilg.Emit(OpCodes.Ldloc, listof);
+                ilg.Emit(OpCodes.Ldloc, readValue);
+                ilg.Emit(OpCodes.Callvirt, listOfType.GetMethod("Add", new[] {genericType}));
+            }
+            else
+            {
+                // arr[i] = readValue
+                ilg.Emit(OpCodes.Ldloc, arr);
+                ilg.Emit(OpCodes.Ldloc, arrIndex);
+                ilg.Emit(OpCodes.Ldloc, readValue);
+                ilg.Emit(OpCodes.Stelem_I4, readValue);
+            }
+
+            //arrIndex++
+            ilg.Emit(OpCodes.Ldloc, arrIndex);
+            ilg.Emit(OpCodes.Ldc_I4_1);
+            ilg.Emit(OpCodes.Add);
+            ilg.Emit(OpCodes.Stloc, arrIndex);
+            //for condition arrIndex<arrLen
+            ilg.MarkLabel(arrayLoopTest);
+            ilg.Emit(OpCodes.Ldloc, arrIndex);
+            ilg.Emit(OpCodes.Conv_I8);
+            ilg.Emit(OpCodes.Ldloc, arrLen);
+            ilg.Emit(OpCodes.Clt);
+            ilg.Emit(OpCodes.Brtrue, arrayLoopStart);
+            //after loop
+
+
+
+            if (isList) //need create new List
+            {
+                //var listType = typeof(List<>);
+                //var listOfType = listType.MakeGenericType(genericType);
+                //var listof = ilg.DeclareLocal(listOfType);
+                ////var ienum = typeof(IEnumerable<>);
+                ////var ienumOfType = ienum.MakeGenericType(genericType);
+                ////var listCtor = listOfType.GetConstructor(new Type[] { ienumOfType });
+                ////ilg.Emit(OpCodes.Ldloc, arr);
+                //var listCtor = listOfType.GetConstructor(new Type[0]);
+                //ilg.Emit(OpCodes.Newobj, listCtor);
+                //ilg.Emit(OpCodes.Stloc, listof);
+
+                ilg.Emit(OpCodes.Ldloc, listof);
+                ilg.Emit(OpCodes.Stloc, valueLocals[parameterIndex]);
+            }
+            else
+            {
+                ilg.Emit(OpCodes.Ldloc, arr);
+                ilg.Emit(OpCodes.Stloc, valueLocals[parameterIndex]);
+            }
+
+
+        }
+
+        private static bool IsGenericCollection(Type type)
+        {
+            if (type.IsGenericType)
+            {
+                var genericType = type.GetGenericTypeDefinition();
+                if (genericType == typeof(List<>) || genericType == typeof(IReadOnlyList<>))
+                    return true;
+            }
+            return false;
+        }
+
+        private static bool IsList(Type type)
+        {
+            if (type.IsGenericType)
+            {
+                var genericType = type.GetGenericTypeDefinition();
+                if (genericType == typeof(List<>))
+                    return true;
+            }
+            return false;
+        }
+
+        private static bool IsArray(Type type)
+        {
+            if (type.IsArray)
+                return true;
+            return false;
+        }
+
         //TODO complete and move to utils
         private static ConstructorInfo GetDeserializationConstructor(Type type)
         {
@@ -356,7 +563,7 @@ namespace MsgPack.Strict
                 return ctors[2]; //TODO better way
             }
             if (ctors.Length > 1)
-                throw new StrictDeserialisationException("Type must have a single public constructor.", type);            
+                throw new StrictDeserialisationException("Type must have a single public constructor.", type);
             var ctor = ctors[0];
             return ctor;
         }
@@ -420,7 +627,7 @@ namespace MsgPack.Strict
                     ilg.Emit(OpCodes.Ldc_I4, bits[i]); // value
                     ilg.Emit(OpCodes.Stelem_I4);
                 }
-                ilg.Emit(OpCodes.Newobj, typeof(decimal).GetConstructor(new[] {typeof(int[])}));
+                ilg.Emit(OpCodes.Newobj, typeof(decimal).GetConstructor(new[] { typeof(int[]) }));
             }
             else
             {

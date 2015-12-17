@@ -141,6 +141,30 @@ namespace MsgPack.Strict.Tests
             public IReadOnlyList<int> Scores { get; }
         }
 
+        public sealed class UserScoreListArray
+        {
+            public UserScoreListArray(string name, int[] scores)
+            {
+                Name = name;
+                Scores = scores;
+            }
+
+            public string Name { get; }
+            public int[] Scores { get; }
+        }
+
+        //public sealed class UserScoreList
+        //{
+        //    public UserScoreList(string name, List<int> scores)
+        //    {
+        //        Name = name;
+        //        Scores = scores;
+        //    }
+
+        //    public string Name { get; }
+        //    public List<int> Scores { get; }
+        //}
+
         public sealed class UserScoreListComplex
         {
             public UserScoreListComplex(string name, List<UserScoreList> scores)
@@ -366,6 +390,21 @@ namespace MsgPack.Strict.Tests
                 .Pack("Scores").PackArrayHeader(3).Pack(1).Pack(2).Pack(3));
 
             var after = StrictDeserialiser.Get<UserScoreList>().Deserialise(bytes);
+
+            Assert.Equal("Bob", after.Name);
+            Assert.Equal(1, after.Scores[0]);
+            Assert.Equal(2, after.Scores[1]);
+            Assert.Equal(3, after.Scores[2]);
+        }
+
+        [Fact]
+        public void HandlesArrays()
+        {
+            var bytes = TestUtil.PackBytes(packer => packer.PackMapHeader(2)
+                .Pack("Name").Pack("Bob")
+                .Pack("Scores").PackArrayHeader(3).Pack(1).Pack(2).Pack(3));
+
+            var after = StrictDeserialiser.Get<UserScoreListArray>().Deserialise(bytes);
 
             Assert.Equal("Bob", after.Name);
             Assert.Equal(1, after.Scores[0]);
