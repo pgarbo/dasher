@@ -53,20 +53,20 @@ namespace MsgPack.Strict.Tests
 
         public sealed class TestDefaultParams
         {
-            public byte    B   { get; }
-            public sbyte   Sb  { get; }
-            public short   S   { get; }
-            public ushort  Us  { get; }
-            public int     I   { get; }
-            public uint    Ui  { get; }
-            public long    L   { get; }
-            public ulong   Ul  { get; }
-            public string  Str { get; }
-            public float   F   { get; }
-            public double  D   { get; }
-            public decimal Dc  { get; }
-            public bool    Bo  { get; }
-            public object  O   { get; }
+            public byte B { get; }
+            public sbyte Sb { get; }
+            public short S { get; }
+            public ushort Us { get; }
+            public int I { get; }
+            public uint Ui { get; }
+            public long L { get; }
+            public ulong Ul { get; }
+            public string Str { get; }
+            public float F { get; }
+            public double D { get; }
+            public decimal Dc { get; }
+            public bool Bo { get; }
+            public object O { get; }
 
             public TestDefaultParams(
                 sbyte sb = -12,
@@ -153,18 +153,6 @@ namespace MsgPack.Strict.Tests
             public int[] Scores { get; }
         }
 
-        //public sealed class UserScoreList
-        //{
-        //    public UserScoreList(string name, List<int> scores)
-        //    {
-        //        Name = name;
-        //        Scores = scores;
-        //    }
-
-        //    public string Name { get; }
-        //    public List<int> Scores { get; }
-        //}
-
         public sealed class UserScoreListComplex
         {
             public UserScoreListComplex(string name, List<UserScoreList> scores)
@@ -187,6 +175,27 @@ namespace MsgPack.Strict.Tests
             public List<UserScoreListComplex> Scores { get; }
         }
 
+        public sealed class UserScoreListOfList
+        {
+            public UserScoreListOfList(string name, List<List<int>> scores)
+            {
+                Name = name;
+                Scores = scores;
+            }
+            public string Name { get; }
+            public List<List<int>> Scores { get; }
+        }
+
+        public sealed class UserScoreArray2d
+        {
+            public UserScoreArray2d(string name, int[][] scores)
+            {
+                Name = name;
+                Scores = scores;
+            }
+            public string Name { get; }
+            public int[][] Scores { get; }
+        }
         #endregion
 
         [Fact]
@@ -381,7 +390,7 @@ namespace MsgPack.Strict.Tests
             Assert.Equal("Bob", after.UserScore.Name);
             Assert.Equal(123, after.UserScore.Score);
         }
-
+        #region Lists
         [Fact]
         public void HandlesReadOnlyListProperty()
         {
@@ -397,20 +406,6 @@ namespace MsgPack.Strict.Tests
             Assert.Equal(3, after.Scores[2]);
         }
 
-        [Fact]
-        public void HandlesArrays()
-        {
-            var bytes = TestUtil.PackBytes(packer => packer.PackMapHeader(2)
-                .Pack("Name").Pack("Bob")
-                .Pack("Scores").PackArrayHeader(3).Pack(1).Pack(2).Pack(3));
-
-            var after = StrictDeserialiser.Get<UserScoreListArray>().Deserialise(bytes);
-
-            Assert.Equal("Bob", after.Name);
-            Assert.Equal(1, after.Scores[0]);
-            Assert.Equal(2, after.Scores[1]);
-            Assert.Equal(3, after.Scores[2]);
-        }
 
         [Fact]
         public void HandlesListOfComplexObject()
@@ -500,5 +495,206 @@ namespace MsgPack.Strict.Tests
             Assert.Equal("Bob2", after.Scores[1].Name);
             Assert.Equal("Bob3", after.Scores[2].Name);
         }
+
+        [Fact]
+        public void HandlesSingleList()
+        {
+            var bytes = TestUtil.PackBytes(packer => packer.PackArrayHeader(3).Pack(1).Pack(2).Pack(3));
+            var after = StrictDeserialiser.Get<List<int>>().Deserialise(bytes);
+            Assert.Equal(1, after[0]);
+            Assert.Equal(2, after[1]);
+            Assert.Equal(3, after[2]);
+        }
+
+        [Fact]
+        public void HandlesListOfListProperty()
+        {
+            var bytes = TestUtil.PackBytes(packer => packer.PackMapHeader(2)
+                .Pack("Name").Pack("Bob")
+                .Pack("Scores").PackArrayHeader(3)
+                    .PackArrayHeader(3)
+                        .Pack(1).Pack(2).Pack(3)
+                    .PackArrayHeader(3)
+                        .Pack(1).Pack(2).Pack(3)
+                    .PackArrayHeader(3)
+                        .Pack(1).Pack(2).Pack(3)
+            );
+
+            var after = StrictDeserialiser.Get<UserScoreListOfList>().Deserialise(bytes);
+
+            Assert.Equal("Bob", after.Name);
+
+            Assert.Equal(1, after.Scores[0][0]);
+            Assert.Equal(2, after.Scores[0][1]);
+            Assert.Equal(3, after.Scores[0][2]);
+        }
+
+        [Fact]
+        public void HandlesSingleListOfList()
+        {
+            var bytes = TestUtil.PackBytes(packer => packer.PackArrayHeader(3)
+                    .PackArrayHeader(3)
+                        .Pack(1).Pack(2).Pack(3)
+                    .PackArrayHeader(3)
+                        .Pack(1).Pack(2).Pack(3)
+                    .PackArrayHeader(3)
+                        .Pack(1).Pack(2).Pack(3)
+            );
+
+            var after = StrictDeserialiser.Get<List<List<int>>>().Deserialise(bytes);
+
+            Assert.Equal(1, after[0][0]);
+            Assert.Equal(2, after[0][1]);
+            Assert.Equal(3, after[0][2]);
+            Assert.Equal(1, after[0][0]);
+            Assert.Equal(2, after[0][1]);
+            Assert.Equal(3, after[0][2]);
+            Assert.Equal(1, after[1][0]);
+            Assert.Equal(2, after[1][1]);
+            Assert.Equal(3, after[1][2]);
+            Assert.Equal(1, after[2][0]);
+            Assert.Equal(2, after[2][1]);
+            Assert.Equal(3, after[2][2]);
+        }
+        #endregion
+        #region Arrays
+        [Fact]
+        public void HandlesSingleArray()
+        {
+            var bytes = TestUtil.PackBytes(packer => packer.PackArrayHeader(3).Pack(1).Pack(2).Pack(3));
+            var after = StrictDeserialiser.Get<int[]>().Deserialise(bytes);
+            Assert.Equal(1, after[0]);
+            Assert.Equal(2, after[1]);
+            Assert.Equal(3, after[2]);
+        }
+
+        [Fact]
+        public void HandlesArraysAsParam()
+        {
+            var bytes = TestUtil.PackBytes(packer => packer.PackMapHeader(2)
+                .Pack("Name").Pack("Bob")
+                .Pack("Scores").PackArrayHeader(3).Pack(1).Pack(2).Pack(3));
+
+            var after = StrictDeserialiser.Get<UserScoreListArray>().Deserialise(bytes);
+
+            Assert.Equal("Bob", after.Name);
+            Assert.Equal(1, after.Scores[0]);
+            Assert.Equal(2, after.Scores[1]);
+            Assert.Equal(3, after.Scores[2]);
+        }
+
+        [Fact]
+        public void HandlesArray2dAsParam()
+        {
+            var bytes = TestUtil.PackBytes(packer => packer.PackMapHeader(2)
+                .Pack("Name").Pack("Bob")
+                .Pack("Scores").PackArrayHeader(3)
+                    .PackArrayHeader(3)
+                        .Pack(1).Pack(2).Pack(3)
+                    .PackArrayHeader(3)
+                        .Pack(1).Pack(2).Pack(3)
+                    .PackArrayHeader(3)
+                        .Pack(1).Pack(2).Pack(3)
+            );
+
+            var after = StrictDeserialiser.Get<UserScoreArray2d>().Deserialise(bytes);
+
+            Assert.Equal("Bob", after.Name);
+
+            Assert.Equal(1, after.Scores[0][0]);
+            Assert.Equal(2, after.Scores[0][1]);
+            Assert.Equal(3, after.Scores[0][2]);
+        }
+
+        [Fact]
+        public void HandlesSingle2dArray()
+        {
+            var bytes = TestUtil.PackBytes(packer => packer.PackArrayHeader(3)
+                    .PackArrayHeader(3)
+                        .Pack(1).Pack(2).Pack(3)
+                    .PackArrayHeader(3)
+                        .Pack(1).Pack(2).Pack(3)
+                    .PackArrayHeader(3)
+                        .Pack(1).Pack(2).Pack(3)
+            );
+
+            var after = StrictDeserialiser.Get<int[][]>().Deserialise(bytes);
+
+            Assert.Equal(1, after[0][0]);
+            Assert.Equal(2, after[0][1]);
+            Assert.Equal(3, after[0][2]);
+            Assert.Equal(1, after[1][0]);
+            Assert.Equal(2, after[1][1]);
+            Assert.Equal(3, after[1][2]);
+            Assert.Equal(1, after[2][0]);
+            Assert.Equal(2, after[2][1]);
+            Assert.Equal(3, after[2][2]);
+        }
+        #endregion
+        #region collection interfaces
+
+        [Fact]
+        public void HandlesIReadonlyList()
+        {
+            var bytes = TestUtil.PackBytes(packer => packer.PackArrayHeader(3).Pack(1).Pack(2).Pack(3));
+            var after = StrictDeserialiser.Get<IReadOnlyList<int>>().Deserialise(bytes);
+            Assert.Equal(1, after[0]);
+            Assert.Equal(2, after[1]);
+            Assert.Equal(3, after[2]);
+        }
+
+        [Fact]
+        public void HandlesIList()
+        {
+            var bytes = TestUtil.PackBytes(packer => packer.PackArrayHeader(3).Pack(1).Pack(2).Pack(3));
+            var after = StrictDeserialiser.Get<IList<int>>().Deserialise(bytes);
+            Assert.Equal(1, after[0]);
+            Assert.Equal(2, after[1]);
+            Assert.Equal(3, after[2]);
+        }
+
+        [Fact]
+        public void HandlesIReadonlyCollection()
+        {
+            var bytes = TestUtil.PackBytes(packer => packer.PackArrayHeader(3).Pack(1).Pack(2).Pack(3));
+            var after = StrictDeserialiser.Get<IReadOnlyCollection<int>>().Deserialise(bytes);
+            var enumerator = after.GetEnumerator();
+            enumerator.MoveNext();
+            Assert.Equal(1, enumerator.Current);
+            enumerator.MoveNext();
+            Assert.Equal(2, enumerator.Current);
+            enumerator.MoveNext();
+            Assert.Equal(3, enumerator.Current);
+        }
+
+        [Fact]
+        public void HandlesIEnumerable()
+        {
+            var bytes = TestUtil.PackBytes(packer => packer.PackArrayHeader(3).Pack(1).Pack(2).Pack(3));
+            var after = StrictDeserialiser.Get<IEnumerable<int>>().Deserialise(bytes);
+            var enumerator = after.GetEnumerator();
+            enumerator.MoveNext();
+            Assert.Equal(1, enumerator.Current);
+            enumerator.MoveNext();
+            Assert.Equal(2, enumerator.Current);
+            enumerator.MoveNext();
+            Assert.Equal(3, enumerator.Current);
+        }
+
+        [Fact]
+        public void HandlesICollection()
+        {
+            var bytes = TestUtil.PackBytes(packer => packer.PackArrayHeader(3).Pack(1).Pack(2).Pack(3));
+            var after = StrictDeserialiser.Get<ICollection<int>>().Deserialise(bytes);
+
+            var enumerator = after.GetEnumerator();
+            enumerator.MoveNext();
+            Assert.Equal(1, enumerator.Current);
+            enumerator.MoveNext();
+            Assert.Equal(2, enumerator.Current);
+            enumerator.MoveNext();
+            Assert.Equal(3, enumerator.Current);
+        }
+        #endregion
     }
 }
