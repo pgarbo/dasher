@@ -609,13 +609,46 @@ namespace MsgPack.Strict.Tests
         #endregion
         #region Arrays
         [Fact]
-        public void HandlesSingleArray()
+        public void HandlesArrayOfInt()
         {
             var bytes = TestUtil.PackBytes(packer => packer.PackArrayHeader(3).Pack(1).Pack(2).Pack(3));
             var after = StrictDeserialiser.Get<int[]>().Deserialise(bytes);
             Assert.Equal(1, after[0]);
             Assert.Equal(2, after[1]);
             Assert.Equal(3, after[2]);
+        }
+
+        [Fact]
+        public void HandlesArrayOfString()
+        {
+            var bytes = TestUtil.PackBytes(packer => packer.PackArrayHeader(3).Pack("a").Pack("b").Pack("c"));
+            var after = StrictDeserialiser.Get<string[]>().Deserialise(bytes);
+            Assert.Equal(3, after.Length);
+            Assert.Equal("a",after[0]);
+            Assert.Equal("b",after[1]);
+            Assert.Equal("c",after[2]);
+        }
+
+        [Fact]
+        public void HandlesArrayOfDouble()
+        {
+            var bytes = TestUtil.PackBytes(packer => packer.PackArrayHeader(3).Pack(1.1d).Pack(1.2d).Pack(1.3d));
+            var after = StrictDeserialiser.Get<double[]>().Deserialise(bytes);
+            Assert.Equal(3, after.Length);
+            Assert.Equal(1.1d, after[0]);
+            Assert.Equal(1.2d, after[1]);
+            Assert.Equal(1.3d, after[2]);
+        }
+
+        [Fact]
+        public void HandlesArrayOfLong()
+        {
+            var bytes = TestUtil.PackBytes(packer => packer.PackArrayHeader(3).Pack(1L).Pack(2L).Pack(3L));
+            var after = StrictDeserialiser.Get<long[]>().Deserialise(bytes);
+            Assert.Equal(3, after.Length);
+            Assert.Equal(1L, after[0]);
+            Assert.Equal(2L, after[1]);
+            Assert.Equal(3L, after[2]);
         }
 
         [Fact]
