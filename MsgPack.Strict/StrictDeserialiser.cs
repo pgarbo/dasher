@@ -421,7 +421,7 @@ namespace MsgPack.Strict
                 ilg.Emit(OpCodes.Ldloc, arr);
                 ilg.Emit(OpCodes.Ldloc, arrIndex);
                 ilg.Emit(OpCodes.Ldloc, readValue);
-                ilg.Emit(OpCodes.Stelem_I4, readValue);
+                ilg.Emit(OpCodes.Stelem, collectionElementType);
             }
 
             // Increment the loop index

@@ -156,6 +156,6 @@ namespace MsgPack.Strict
             value = (T[])StrictDeserialiser.Get(typeof(T[])).Deserialise(unpacker);
             return true;
         }
-#endregion
+        #endregion
     }
 }

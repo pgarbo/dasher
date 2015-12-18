@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
-using System.Runtime.InteropServices.WindowsRuntime;
 using MsgPack.Serialization;
 using Xunit;
 
@@ -515,9 +515,9 @@ namespace MsgPack.Strict.Tests
                     .PackArrayHeader(3)
                         .Pack(1).Pack(2).Pack(3)
                     .PackArrayHeader(3)
-                        .Pack(1).Pack(2).Pack(3)
+                        .Pack(11).Pack(12).Pack(13)
                     .PackArrayHeader(3)
-                        .Pack(1).Pack(2).Pack(3)
+                        .Pack(21).Pack(22).Pack(23)
             );
 
             var after = StrictDeserialiser.Get<UserScoreListOfList>().Deserialise(bytes);
@@ -527,6 +527,12 @@ namespace MsgPack.Strict.Tests
             Assert.Equal(1, after.Scores[0][0]);
             Assert.Equal(2, after.Scores[0][1]);
             Assert.Equal(3, after.Scores[0][2]);
+            Assert.Equal(11, after.Scores[1][0]);
+            Assert.Equal(12, after.Scores[1][1]);
+            Assert.Equal(13, after.Scores[1][2]);
+            Assert.Equal(21, after.Scores[2][0]);
+            Assert.Equal(22, after.Scores[2][1]);
+            Assert.Equal(23, after.Scores[2][2]);
         }
 
         [Fact]
@@ -536,9 +542,9 @@ namespace MsgPack.Strict.Tests
                     .PackArrayHeader(3)
                         .Pack(1).Pack(2).Pack(3)
                     .PackArrayHeader(3)
-                        .Pack(1).Pack(2).Pack(3)
+                        .Pack(11).Pack(12).Pack(13)
                     .PackArrayHeader(3)
-                        .Pack(1).Pack(2).Pack(3)
+                        .Pack(21).Pack(22).Pack(23)
             );
 
             var after = StrictDeserialiser.Get<List<List<int>>>().Deserialise(bytes);
@@ -546,27 +552,24 @@ namespace MsgPack.Strict.Tests
             Assert.Equal(1, after[0][0]);
             Assert.Equal(2, after[0][1]);
             Assert.Equal(3, after[0][2]);
-            Assert.Equal(1, after[0][0]);
-            Assert.Equal(2, after[0][1]);
-            Assert.Equal(3, after[0][2]);
-            Assert.Equal(1, after[1][0]);
-            Assert.Equal(2, after[1][1]);
-            Assert.Equal(3, after[1][2]);
-            Assert.Equal(1, after[2][0]);
-            Assert.Equal(2, after[2][1]);
-            Assert.Equal(3, after[2][2]);
+            Assert.Equal(11, after[1][0]);
+            Assert.Equal(12, after[1][1]);
+            Assert.Equal(13, after[1][2]);
+            Assert.Equal(21, after[2][0]);
+            Assert.Equal(22, after[2][1]);
+            Assert.Equal(23, after[2][2]);
         }
 
         [Fact]
-        public void HandlesSingleListOfArray()
+        public void HandlesListOfArray()
         {
             var bytes = TestUtil.PackBytes(packer => packer.PackArrayHeader(3)
                     .PackArrayHeader(3)
                         .Pack(1).Pack(2).Pack(3)
                     .PackArrayHeader(3)
-                        .Pack(1).Pack(2).Pack(3)
+                        .Pack(11).Pack(12).Pack(13)
                     .PackArrayHeader(3)
-                        .Pack(1).Pack(2).Pack(3)
+                        .Pack(21).Pack(22).Pack(23)
             );
 
             var after = StrictDeserialiser.Get<List<int[]>>().Deserialise(bytes);
@@ -574,38 +577,15 @@ namespace MsgPack.Strict.Tests
             Assert.Equal(1, after[0][0]);
             Assert.Equal(2, after[0][1]);
             Assert.Equal(3, after[0][2]);
-            Assert.Equal(1, after[1][0]);
-            Assert.Equal(2, after[1][1]);
-            Assert.Equal(3, after[1][2]);
-            Assert.Equal(1, after[2][0]);
-            Assert.Equal(2, after[2][1]);
-            Assert.Equal(3, after[2][2]);
+            Assert.Equal(11, after[1][0]);
+            Assert.Equal(12, after[1][1]);
+            Assert.Equal(13, after[1][2]);
+            Assert.Equal(21, after[2][0]);
+            Assert.Equal(22, after[2][1]);
+            Assert.Equal(23, after[2][2]);
         }
 
-        [Fact]
-        public void HandlesSingleArrayOfList()
-        {
-            var bytes = TestUtil.PackBytes(packer => packer.PackArrayHeader(3)
-                    .PackArrayHeader(3)
-                        .Pack(1).Pack(2).Pack(3)
-                    .PackArrayHeader(3)
-                        .Pack(1).Pack(2).Pack(3)
-                    .PackArrayHeader(3)
-                        .Pack(1).Pack(2).Pack(3)
-            );
 
-            var after = StrictDeserialiser.Get<List<int>[]>().Deserialise(bytes);
-
-            Assert.Equal(1, after[0][0]);
-            Assert.Equal(2, after[0][1]);
-            Assert.Equal(3, after[0][2]);
-            Assert.Equal(1, after[1][0]);
-            Assert.Equal(2, after[1][1]);
-            Assert.Equal(3, after[1][2]);
-            Assert.Equal(1, after[2][0]);
-            Assert.Equal(2, after[2][1]);
-            Assert.Equal(3, after[2][2]);
-        }
         #endregion
         #region Arrays
         [Fact]
@@ -624,9 +604,9 @@ namespace MsgPack.Strict.Tests
             var bytes = TestUtil.PackBytes(packer => packer.PackArrayHeader(3).Pack("a").Pack("b").Pack("c"));
             var after = StrictDeserialiser.Get<string[]>().Deserialise(bytes);
             Assert.Equal(3, after.Length);
-            Assert.Equal("a",after[0]);
-            Assert.Equal("b",after[1]);
-            Assert.Equal("c",after[2]);
+            Assert.Equal("a", after[0]);
+            Assert.Equal("b", after[1]);
+            Assert.Equal("c", after[2]);
         }
 
         [Fact]
@@ -641,6 +621,31 @@ namespace MsgPack.Strict.Tests
         }
 
         [Fact]
+        public void HandlesArrayOfList()
+        {
+            var bytes = TestUtil.PackBytes(packer => packer.PackArrayHeader(3)
+                    .PackArrayHeader(3)
+                        .Pack(1).Pack(2).Pack(3)
+                    .PackArrayHeader(3)
+                        .Pack(11).Pack(12).Pack(13)
+                    .PackArrayHeader(3)
+                        .Pack(21).Pack(22).Pack(23)
+            );
+
+            var after = StrictDeserialiser.Get<List<int>[]>().Deserialise(bytes);
+
+            Assert.Equal(1, after[0][0]);
+            Assert.Equal(2, after[0][1]);
+            Assert.Equal(3, after[0][2]);
+            Assert.Equal(11, after[1][0]);
+            Assert.Equal(12, after[1][1]);
+            Assert.Equal(13, after[1][2]);
+            Assert.Equal(21, after[2][0]);
+            Assert.Equal(22, after[2][1]);
+            Assert.Equal(23, after[2][2]);
+        }
+
+        [Fact]
         public void HandlesArrayOfLong()
         {
             var bytes = TestUtil.PackBytes(packer => packer.PackArrayHeader(3).Pack(1L).Pack(2L).Pack(3L));
@@ -652,7 +657,32 @@ namespace MsgPack.Strict.Tests
         }
 
         [Fact]
-        public void HandlesArraysAsParam()
+        public void HandlesArrayOfComplexType()
+        {
+            var bytes = TestUtil.PackBytes(packer => packer
+            .PackArrayHeader(3)
+                .PackMapHeader(2)
+                    .Pack("Name").Pack("Bob")
+                    .Pack("Score").Pack(123)
+                .PackMapHeader(2)
+                    .Pack("Name").Pack("John")
+                    .Pack("Score").Pack(234)
+                .PackMapHeader(2)
+                    .Pack("Name").Pack("Sam")
+                    .Pack("Score").Pack(345)
+            );
+            var after = StrictDeserialiser.Get<UserScore[]>().Deserialise(bytes);
+            Assert.Equal(3, after.Length);
+            Assert.Equal("Bob", after[0].Name);
+            Assert.Equal(123, after[0].Score);
+            Assert.Equal("John", after[1].Name);
+            Assert.Equal(234, after[1].Score);
+            Assert.Equal("Sam", after[2].Name);
+            Assert.Equal(345, after[2].Score);
+        }
+
+        [Fact]
+        public void HandlesArrayAsParam()
         {
             var bytes = TestUtil.PackBytes(packer => packer.PackMapHeader(2)
                 .Pack("Name").Pack("Bob")
@@ -667,17 +697,17 @@ namespace MsgPack.Strict.Tests
         }
 
         [Fact]
-        public void HandlesArray2dAsParam()
+        public void HandlesJagged2DArrayAsParam()
         {
             var bytes = TestUtil.PackBytes(packer => packer.PackMapHeader(2)
                 .Pack("Name").Pack("Bob")
                 .Pack("Scores").PackArrayHeader(3)
                     .PackArrayHeader(3)
                         .Pack(1).Pack(2).Pack(3)
-                    .PackArrayHeader(3)
-                        .Pack(1).Pack(2).Pack(3)
-                    .PackArrayHeader(3)
-                        .Pack(1).Pack(2).Pack(3)
+                    .PackArrayHeader(2)
+                        .Pack(11).Pack(12)
+                    .PackArrayHeader(1)
+                        .Pack(21)
             );
 
             var after = StrictDeserialiser.Get<UserScoreArray2d>().Deserialise(bytes);
@@ -687,18 +717,21 @@ namespace MsgPack.Strict.Tests
             Assert.Equal(1, after.Scores[0][0]);
             Assert.Equal(2, after.Scores[0][1]);
             Assert.Equal(3, after.Scores[0][2]);
+            Assert.Equal(11, after.Scores[1][0]);
+            Assert.Equal(12, after.Scores[1][1]);
+            Assert.Equal(21, after.Scores[2][0]);
         }
 
         [Fact]
-        public void HandlesSingle2dArray()
+        public void HandlesJagged2DArray()
         {
             var bytes = TestUtil.PackBytes(packer => packer.PackArrayHeader(3)
                     .PackArrayHeader(3)
                         .Pack(1).Pack(2).Pack(3)
-                    .PackArrayHeader(3)
-                        .Pack(1).Pack(2).Pack(3)
-                    .PackArrayHeader(3)
-                        .Pack(1).Pack(2).Pack(3)
+                    .PackArrayHeader(2)
+                        .Pack(11).Pack(12)
+                    .PackArrayHeader(1)
+                        .Pack(21)
             );
 
             var after = StrictDeserialiser.Get<int[][]>().Deserialise(bytes);
@@ -706,13 +739,36 @@ namespace MsgPack.Strict.Tests
             Assert.Equal(1, after[0][0]);
             Assert.Equal(2, after[0][1]);
             Assert.Equal(3, after[0][2]);
-            Assert.Equal(1, after[1][0]);
-            Assert.Equal(2, after[1][1]);
-            Assert.Equal(3, after[1][2]);
-            Assert.Equal(1, after[2][0]);
-            Assert.Equal(2, after[2][1]);
-            Assert.Equal(3, after[2][2]);
+            Assert.Equal(11, after[1][0]);
+            Assert.Equal(12, after[1][1]);
+            Assert.Equal(21, after[2][0]);
         }
+
+        [Fact]
+        public void Handles2DArray()
+        {
+            var bytes = TestUtil.PackBytes(packer => packer.PackArrayHeader(3)
+                    .PackArrayHeader(3)
+                        .Pack(1).Pack(2).Pack(3)
+                    .PackArrayHeader(3)
+                        .Pack(11).Pack(12).Pack(13)
+                    .PackArrayHeader(3)
+                        .Pack(21).Pack(22).Pack(23)
+            );
+
+            var after = StrictDeserialiser.Get<int[,]>().Deserialise(bytes);
+
+            Assert.Equal(1, after[0, 0]);
+            Assert.Equal(2, after[0, 1]);
+            Assert.Equal(3, after[0, 2]);
+            Assert.Equal(11, after[1, 0]);
+            Assert.Equal(12, after[1, 1]);
+            Assert.Equal(13, after[1, 2]);
+            Assert.Equal(21, after[2, 0]);
+            Assert.Equal(22, after[2, 1]);
+            Assert.Equal(23, after[2, 2]);
+        }
+
         #endregion
         #region collection interfaces
 
@@ -778,6 +834,140 @@ namespace MsgPack.Strict.Tests
             enumerator.MoveNext();
             Assert.Equal(3, enumerator.Current);
         }
+        #endregion
+
+        #region Performance tests
+
+        //[Fact]
+        public void PerformanceOfListAndArrayCreation()
+        {
+            const int million = 1000000;
+            const int capacity = 10 * million;
+            var stream = new MemoryStream();
+            var packer = Packer.Create(stream);
+            packer.PackArrayHeader(capacity);
+            for (int i = 0; i < capacity; i++)
+            {
+                packer.Pack(i);
+            }
+            stream.Position = 0;
+            var bytes = stream.GetBuffer();
+
+            Stopwatch sw = new Stopwatch();
+
+            {
+                sw.Restart();
+                var receivedStream = new MemoryStream(bytes);
+                var unpacker = Unpacker.Create(receivedStream);
+                long arrLen;
+                unpacker.ReadArrayLength(out arrLen);
+                var arr = new int[capacity];
+                for (int i = 0; i < capacity; i++)
+                {
+                    int val;
+                    unpacker.ReadInt32(out val);
+                    arr[i] = val;
+                }
+                sw.Stop();
+                long x = 0;
+                for (int i = 0; i < capacity; i++)
+                    x += arr[i];
+                Debug.WriteLine("array " + sw.ElapsedMilliseconds);
+            }
+
+            {
+                sw.Restart();
+                var receivedStream = new MemoryStream(bytes);
+                var unpacker = Unpacker.Create(receivedStream);
+                long arrLen;
+                unpacker.ReadArrayLength(out arrLen);
+                var arr2 = new int[capacity];
+                for (int i = 0; i < capacity; i++)
+                {
+                    int val;
+                    unpacker.ReadInt32(out val);
+                    arr2[i] = val;
+                }
+                var list = new List<int>(arr2);
+                sw.Stop();
+                long x = 0;
+                for (int i = 0; i < capacity; i++)
+                    x += list[i];
+                Debug.WriteLine("List from array " + sw.ElapsedMilliseconds);
+            }
+
+            {
+                sw.Restart();
+                var receivedStream = new MemoryStream(bytes);
+                var unpacker = Unpacker.Create(receivedStream);
+                long arrLen;
+                unpacker.ReadArrayLength(out arrLen);
+                var list = new List<int>();
+                for (int i = 0; i < capacity; i++)
+                {
+                    int val;
+                    unpacker.ReadInt32(out val);
+                    list.Add(val);
+                }
+                sw.Stop();
+                long x = 0;
+                for (int i = 0; i < capacity; i++)
+                    x += list[i];
+                Debug.WriteLine("List " + sw.ElapsedMilliseconds);
+            }
+
+            {
+                sw.Restart();
+                var receivedStream = new MemoryStream(bytes);
+                var unpacker = Unpacker.Create(receivedStream);
+                long arrLen;
+                unpacker.ReadArrayLength(out arrLen);
+                var list = new List<int>();
+                for (int i = 0; i < capacity; i++)
+                {
+                    int val;
+                    unpacker.ReadInt32(out val);
+                    list.Add(val);
+                }
+                var arr = list.ToArray();
+                sw.Stop();
+                long x = 0;
+                for (int i = 0; i < capacity; i++)
+                    x += arr[i];
+                Debug.WriteLine("array from List " + sw.ElapsedMilliseconds);
+
+            }
+
+            {
+                sw.Restart();
+                var afterArr = StrictDeserialiser.Get<int[]>().Deserialise(bytes);
+                sw.Stop();
+                Debug.WriteLine("Deserializer array " + sw.ElapsedMilliseconds);
+            }
+
+            {
+                sw.Restart();
+                var afterList = StrictDeserialiser.Get<List<int>>().Deserialise(bytes);
+                sw.Stop();
+                Debug.WriteLine("StrictDeserializer List " + sw.ElapsedMilliseconds);
+            }
+
+            {
+                var sendSerializer = MessagePackSerializer.Get<List<int>>();
+                var receiveSerializer = MessagePackSerializer.Get<List<int>>();
+                var value = new List<int>();
+                for (int i = 0; i < capacity; i++)
+                {
+                    value.Add(i);
+                }
+                var bytes1 = sendSerializer.PackSingleObject(value);
+                sw.Restart();
+                var after = receiveSerializer.UnpackSingleObject(bytes1);
+                sw.Stop();
+                Debug.WriteLine("MSG Pack Deserializer List " + sw.ElapsedMilliseconds);
+            }
+        }
+
         #endregion
     }
 }
