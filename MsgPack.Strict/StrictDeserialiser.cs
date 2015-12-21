@@ -139,7 +139,7 @@ namespace MsgPack.Strict
                 // within the map. We read this here.
                 ilg.Emit(OpCodes.Ldarg_0); // unpacker
                 ilg.Emit(OpCodes.Ldloca, mapSize);
-                ilg.Emit(OpCodes.Callvirt, typeof(MsgPackUnpacker).GetMethod("TryReadMapLength"));
+                ilg.Emit(OpCodes.Call, typeof(MsgPackUnpacker).GetMethod("TryReadMapLength"));
 
                 // If false was returned, the data stream ended
                 var ifLabel = ilg.DefineLabel();
@@ -359,14 +359,30 @@ namespace MsgPack.Strict
 
             // Get Generic unpacker
             var genericunpackerMethod = ValueUnpacker.GetUnpackerMethodForType(collectionElementType);
-            
+
+            Action throwException = () =>
+            {
+                ilg.Emit(OpCodes.Ldtoken, parameterType);
+                ilg.Emit(OpCodes.Call, typeof(Type).GetMethod("GetTypeFromHandle"));
+                ilg.Emit(OpCodes.Newobj, typeof(StrictDeserialisationException).GetConstructor(new[] { typeof(string), typeof(Type) }));
+                ilg.Emit(OpCodes.Throw);
+            };
+
             // Lists and arrays are stored as array in msgpack
             // Read msgpack array length first
             var arrLen = ilg.DeclareLocal(typeof(int));
             ilg.Emit(OpCodes.Ldarg_0); // unpacker
             ilg.Emit(OpCodes.Ldloca, arrLen);
-            ilg.Emit(OpCodes.Callvirt, typeof(MsgPackUnpacker).GetMethod("TryReadArrayLength"));
-            ilg.Emit(OpCodes.Pop); //TODO RESULT
+            ilg.Emit(OpCodes.Call, typeof(MsgPackUnpacker).GetMethod("TryReadArrayLength"));
+
+            // If false was returned, the data stream ended
+            var ifLabel = ilg.DefineLabel();
+            ilg.Emit(OpCodes.Brtrue, ifLabel);
+            {
+                ilg.Emit(OpCodes.Ldstr, "Data stream ended.");
+                throwException();
+            }
+            ilg.MarkLabel(ifLabel);
 
             // Declare List or array depending on parameter type. For some reason using only arrays and create new List<T>(array) at the end
             // of the code causes runtime ecxception TODO investigate
@@ -374,7 +390,7 @@ namespace MsgPack.Strict
             var typeOfListConcrete = typeOfListGeneric.MakeGenericType(collectionElementType);
             var list = ilg.DeclareLocal(typeOfListConcrete);
             var arr = ilg.DeclareLocal(collectionElementType.MakeArrayType());
-            if (isList) //TODO remove if solved problem with creating list at the end
+            if (isList)
             {
                 // Create new List<T>() and store in list
                 var listCtor = typeOfListConcrete.GetConstructor(new Type[0]);
@@ -385,7 +401,6 @@ namespace MsgPack.Strict
             {
                 // Create new array of T and store in arr
                 ilg.Emit(OpCodes.Ldloc, arrLen);
-                ilg.Emit(OpCodes.Conv_Ovf_I);
                 ilg.Emit(OpCodes.Newarr, collectionElementType);
                 ilg.Emit(OpCodes.Stloc, arr);
             }
@@ -408,9 +423,18 @@ namespace MsgPack.Strict
             ilg.Emit(OpCodes.Ldarg_0);
             ilg.Emit(OpCodes.Ldloca, readValue);
             ilg.Emit(OpCodes.Call, genericunpackerMethod);
-            ilg.Emit(OpCodes.Pop); //TODO TEST RESULT
-            
-            if (isList) //TODO as above, use arr only
+
+            // If the unpacker method failed (returned false), throw
+            var typeGetterSuccess = ilg.DefineLabel();
+            ilg.Emit(OpCodes.Brtrue, typeGetterSuccess);
+            {
+                // TODO get reason unpacker failed
+                ilg.Emit(OpCodes.Ldstr, "Failed to unpack array element. Check types match.");
+                throwException();
+            }
+            ilg.MarkLabel(typeGetterSuccess);
+
+            if (isList)
             {
                 // Call list.Add(readValue);
                 ilg.Emit(OpCodes.Ldloc, list);
@@ -434,7 +458,6 @@ namespace MsgPack.Strict
             // Test for loop condition if arrIndex<arrLen
             ilg.MarkLabel(arrayLoopTest);
             ilg.Emit(OpCodes.Ldloc, arrIndex);
-            ilg.Emit(OpCodes.Conv_I8); //arrLen is long hence convert to Int64
             ilg.Emit(OpCodes.Ldloc, arrLen); 
             ilg.Emit(OpCodes.Clt);
             ilg.Emit(OpCodes.Brtrue, arrayLoopStart);
@@ -443,23 +466,12 @@ namespace MsgPack.Strict
 
             if (isList) //need create new List
             {
-                // TODO this code causes exception
-                //var ienum = typeof(IEnumerable<>);
-                //var ienumOfType = ienum.MakeGenericType(collectionElementType);
-                //var listCtor = typeOfListConcrete.GetConstructor(new Type[] { ienumOfType });
-                //ilg.Emit(OpCodes.Ldloc, arr);                
-                //ilg.Emit(OpCodes.Newobj, listCtor);
-                //ilg.Emit(OpCodes.Stloc, valueLocals[parameterIndex]);
-
                 ilg.Emit(OpCodes.Ldloc, list);
-                //ilg.Emit(OpCodes.Stloc, valueLocals[parameterIndex]);
             }
             else
             {
                 ilg.Emit(OpCodes.Ldloc, arr);
-                //ilg.Emit(OpCodes.Stloc, valueLocals[parameterIndex]);
             }
-            //ilg.Emit(OpCodes.Newobj, ctor);
 
             // Return the newly constructed object!
             ilg.Emit(OpCodes.Ret);
