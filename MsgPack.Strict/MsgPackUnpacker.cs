@@ -4,7 +4,7 @@ using System.Text;
 
 namespace MsgPack.Strict
 {
-    // TODO float/double support
+    // TODO binary reading
 
     public sealed class MsgPackUnpacker
     {
@@ -311,6 +311,46 @@ namespace MsgPack.Strict
 
         #endregion
 
+        #region TryRead float/double
+
+        public bool TryReadFloat(out float value)
+        {
+            if (TryPrepareNextByte())
+            {
+                if (_nextByte == MsgPackCode.Real32)
+                {
+                    var bytes = Read(sizeof(float));
+                    if (BitConverter.IsLittleEndian)
+                    {
+                        Array.Reverse(bytes);
+                    }
+                    value = BitConverter.ToSingle(bytes, 0);
+                    _nextByte = -1;
+                    return true;
+                }
+            }
+            value = default(float);
+            return false;
+        }
+
+        public bool TryReadDouble(out double value)
+        {
+            if (TryPrepareNextByte())
+            {
+                if (_nextByte == MsgPackCode.Real64)
+                {
+                    var longValue = ReadInt64();
+                    value = BitConverter.Int64BitsToDouble(longValue);
+                    _nextByte = -1;
+                    return true;
+                }
+            }
+            value = default(double);
+            return false;
+        }
+
+        #endregion
+
         public bool TryReadBool(out bool value)
         {
             if (TryPrepareNextByte())
@@ -448,6 +488,38 @@ namespace MsgPack.Strict
         }
 
         #endregion
+
+        public bool TryReadBinary(out byte[] value)
+        {
+            if (TryPrepareNextByte())
+            {
+                if (_nextByte == MsgPackCode.NilValue)
+                {
+                    value = null;
+                    _nextByte = -1;
+                    return true;
+                }
+
+                uint? length = null;
+                switch (_nextByte)
+                {
+                    case MsgPackCode.Bin8: length = ReadByte(); break;
+                    case MsgPackCode.Bin16: length = ReadUInt16(); break;
+                    case MsgPackCode.Bin32: length = ReadUInt32(); break;
+                }
+                if (length != null)
+                {
+                    if (length > int.MaxValue)
+                        throw new Exception("Byte array length is too long to read");
+                    value = Read((int)length);
+                    _nextByte = -1;
+                    return true;
+                }
+            }
+
+            value = default(byte[]);
+            return false;
+        }
 
         private byte[] Read(int length)
         {

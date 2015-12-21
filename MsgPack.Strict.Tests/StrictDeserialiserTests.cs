@@ -145,6 +145,17 @@ namespace MsgPack.Strict.Tests
             public IReadOnlyList<int> Scores { get; }
         }
 
+        public sealed class FloatAndDouble
+        {
+            public FloatAndDouble(float floatField, double doubleField)
+            {
+                FloatField = floatField;
+                DoubleField = doubleField;
+            }
+            public float FloatField { get; }
+            public double DoubleField { get; }
+        }
+
         #endregion
 
         [Fact]
@@ -254,7 +265,7 @@ namespace MsgPack.Strict.Tests
                 .Pack("Name").Pack(123));
 
             var deserialiser = StrictDeserialiser.Get<UserScore>();
-            Assert.Throws<MessageTypeException>(() => deserialiser.Deserialise(bytes));
+            Assert.Throws<StrictDeserialisationException>(() => deserialiser.Deserialise(bytes));
         }
 
         [Fact]
@@ -357,19 +368,32 @@ namespace MsgPack.Strict.Tests
         public void TryReadMapLengthThenString()
         {
             var stream = new MemoryStream();
-            var packer = Packer.Create(stream);
+            var packer = MsgPackPacker.Create(stream);
             packer.PackMapHeader(1);
-            packer.PackString("hello");
+            packer.Pack("hello");
 
             stream.Position = 0;
 
-            var unpacker = Unpacker.Create(stream);
-            long mapLength;
-            Assert.True(unpacker.ReadMapLength(out mapLength), "Unpacking map length");
+            var unpacker = MsgPackUnpacker.Create(stream);
+            int mapLength;
+            Assert.True(unpacker.TryReadMapLength(out mapLength), "Unpacking map length");
             Assert.Equal(1, mapLength);
             string hello;
-            Assert.True(unpacker.ReadString(out hello), "Unpacking string");
+            Assert.True(unpacker.TryReadString(out hello), "Unpacking string");
             Assert.Equal("hello", hello);
+        }
+
+        [Fact]
+        public void FloatAndDoubleFields()
+        {
+            var bytes = TestUtil.PackBytes(packer => packer.PackMapHeader(2)
+                .Pack("FloatField").Pack(123.4f)
+                .Pack("DoubleField").Pack(567.89d));
+
+            var after = StrictDeserialiser.Get<FloatAndDouble>().Deserialise(bytes);
+
+            Assert.Equal(123.4f, after.FloatField);
+            Assert.Equal(567.89d, after.DoubleField);
         }
     }
 }
