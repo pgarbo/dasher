@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
 using MsgPack.Serialization;
 using Xunit;
@@ -172,35 +173,35 @@ namespace MsgPack.Strict.Tests
 
         public sealed class UserScoreListComplex
         {
-            public UserScoreListComplex(string name, List<UserScoreList> scores)
+            public UserScoreListComplex(string name, IReadOnlyList<UserScoreList> scores)
             {
                 Name = name;
                 Scores = scores;
             }
             public string Name { get; }
-            public List<UserScoreList> Scores { get; }
+            public IReadOnlyList<UserScoreList> Scores { get; }
         }
 
         public sealed class UserScoreListComplexComplex
         {
-            public UserScoreListComplexComplex(string name, List<UserScoreListComplex> scores)
+            public UserScoreListComplexComplex(string name, IReadOnlyList<UserScoreListComplex> scores)
             {
                 Name = name;
                 Scores = scores;
             }
             public string Name { get; }
-            public List<UserScoreListComplex> Scores { get; }
+            public IReadOnlyList<UserScoreListComplex> Scores { get; }
         }
 
         public sealed class UserScoreListOfList
         {
-            public UserScoreListOfList(string name, List<List<int>> scores)
+            public UserScoreListOfList(string name, IReadOnlyList<IReadOnlyList<int>> scores)
             {
                 Name = name;
                 Scores = scores;
             }
             public string Name { get; }
-            public List<List<int>> Scores { get; }
+            public IReadOnlyList<IReadOnlyList<int>> Scores { get; }
         }
 
         public sealed class UserScoreArray2d
