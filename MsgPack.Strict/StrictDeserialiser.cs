@@ -122,7 +122,7 @@ namespace MsgPack.Strict
             Action throwException = () =>
             {
                 ilg.Emit(OpCodes.Ldtoken, type);
-                ilg.Emit(OpCodes.Call, typeof(Type).GetMethod("GetTypeFromHandle"));
+                ilg.Emit(OpCodes.Call, typeof(Type).GetMethod(nameof(Type.GetTypeFromHandle)));
                 ilg.Emit(OpCodes.Newobj, typeof(StrictDeserialisationException).GetConstructor(new[] { typeof(string), typeof(Type) }));
                 ilg.Emit(OpCodes.Throw);
             };
@@ -139,7 +139,7 @@ namespace MsgPack.Strict
                 // within the map. We read this here.
                 ilg.Emit(OpCodes.Ldarg_0); // unpacker
                 ilg.Emit(OpCodes.Ldloca, mapSize);
-                ilg.Emit(OpCodes.Call, typeof(MsgPackUnpacker).GetMethod("TryReadMapLength"));
+                ilg.Emit(OpCodes.Call, typeof(MsgPackUnpacker).GetMethod(nameof(MsgPackUnpacker.TryReadMapLength)));
 
                 // If false was returned, the data stream ended
                 var ifLabel = ilg.DefineLabel();
@@ -158,7 +158,6 @@ namespace MsgPack.Strict
                 // Create a loop counter, initialised to zero
                 var loopIndex = ilg.DeclareLocal(typeof(int));
                 ilg.Emit(OpCodes.Ldc_I4_0);
-                //TODO remove this ilg.Emit(OpCodes.Conv_I8);
                 ilg.Emit(OpCodes.Stloc, loopIndex);
 
                 // Create labels to jump to within the loop
@@ -178,7 +177,7 @@ namespace MsgPack.Strict
                 {
                     ilg.Emit(OpCodes.Ldarg_0); // unpacker
                     ilg.Emit(OpCodes.Ldloca, key);
-                    ilg.Emit(OpCodes.Call, typeof(MsgPackUnpacker).GetMethod("TryReadString", new Type[] { typeof(string).MakeByRefType() }));
+                    ilg.Emit(OpCodes.Call, typeof(MsgPackUnpacker).GetMethod(nameof(MsgPackUnpacker.TryReadString), new[] { typeof(string).MakeByRefType() }));
 
                     // If false was returned, the data stream ended
                     var ifLabel = ilg.DefineLabel();
@@ -207,7 +206,7 @@ namespace MsgPack.Strict
                     ilg.Emit(OpCodes.Ldloc, key);
                     ilg.Emit(OpCodes.Ldstr, parameters[parameterIndex].Name);
                     ilg.Emit(OpCodes.Ldc_I4_5);
-                    ilg.Emit(OpCodes.Callvirt, typeof(string).GetMethod("Equals", new[] { typeof(string), typeof(StringComparison) }));
+                    ilg.Emit(OpCodes.Callvirt, typeof(string).GetMethod(nameof(string.Equals), new[] { typeof(string), typeof(StringComparison) }));
 
                     // If the key doesn't match this property, go to the next block
                     ilg.Emit(OpCodes.Brfalse, nextLabel.Value);
@@ -224,7 +223,7 @@ namespace MsgPack.Strict
                         {
                             ilg.Emit(OpCodes.Ldstr, "Encountered duplicate field \"{0}\".");
                             ilg.Emit(OpCodes.Ldloc, key);
-                            ilg.Emit(OpCodes.Call, typeof(string).GetMethod("Format", new[] { typeof(string), typeof(object) }));
+                            ilg.Emit(OpCodes.Call, typeof(string).GetMethod(nameof(string.Format), new[] { typeof(string), typeof(object) }));
                             throwException();
                         }
 
@@ -251,7 +250,7 @@ namespace MsgPack.Strict
                         // TODO get reason unpacker failed
                         ilg.Emit(OpCodes.Ldstr, "Failed to unpack field \"{0}\".  Check types match.");
                         ilg.Emit(OpCodes.Ldloc, key);
-                        ilg.Emit(OpCodes.Call, typeof(string).GetMethod("Format", new[] { typeof(string), typeof(object) }));
+                        ilg.Emit(OpCodes.Call, typeof(string).GetMethod(nameof(string.Format), new[] { typeof(string), typeof(object) }));
                         throwException();
                     }
                     ilg.MarkLabel(typeGetterSuccess);
@@ -265,7 +264,7 @@ namespace MsgPack.Strict
                 // If we got here then the property was not recognised. Throw.
                 ilg.Emit(OpCodes.Ldstr, "Encountered unexpected field \"{0}\".");
                 ilg.Emit(OpCodes.Ldloc, key);
-                ilg.Emit(OpCodes.Call, typeof(string).GetMethod("Format", new[] { typeof(string), typeof(object) }));
+                ilg.Emit(OpCodes.Call, typeof(string).GetMethod(nameof(string.Format), new[] { typeof(string), typeof(object) }));
                 throwException();
 
                 ilg.MarkLabel(lblEndIfChain);
@@ -319,7 +318,7 @@ namespace MsgPack.Strict
                 ilg.MarkLabel(lblValuesMissing);
                 ilg.Emit(OpCodes.Ldstr, "Missing required field \"{0}\".");
                 ilg.Emit(OpCodes.Ldloc, paramName);
-                ilg.Emit(OpCodes.Call, typeof(string).GetMethod("Format", new[] { typeof(string), typeof(object) }));
+                ilg.Emit(OpCodes.Call, typeof(string).GetMethod(nameof(string.Format), new[] { typeof(string), typeof(object) }));
                 throwException();
             }
             ilg.MarkLabel(lblValuesOk);
@@ -363,7 +362,7 @@ namespace MsgPack.Strict
             Action throwException = () =>
             {
                 ilg.Emit(OpCodes.Ldtoken, parameterType);
-                ilg.Emit(OpCodes.Call, typeof (Type).GetMethod("GetTypeFromHandle"));
+                ilg.Emit(OpCodes.Call, typeof (Type).GetMethod(nameof(Type.GetTypeFromHandle)));
                 ilg.Emit(OpCodes.Newobj, typeof (StrictDeserialisationException).GetConstructor(new[] {typeof (string), typeof (Type)}));
                 ilg.Emit(OpCodes.Throw);
             };
@@ -373,7 +372,7 @@ namespace MsgPack.Strict
             var arrLen = ilg.DeclareLocal(typeof (int));
             ilg.Emit(OpCodes.Ldarg_0); // unpacker
             ilg.Emit(OpCodes.Ldloca, arrLen);
-            ilg.Emit(OpCodes.Call, typeof (MsgPackUnpacker).GetMethod("TryReadArrayLength"));
+            ilg.Emit(OpCodes.Call, typeof (MsgPackUnpacker).GetMethod(nameof(MsgPackUnpacker.TryReadArrayLength)));
 
             // If false was returned, the data stream ended
             var ifLabel = ilg.DefineLabel();
