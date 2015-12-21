@@ -22,7 +22,7 @@ namespace MsgPack.Strict
         mTypeHash[typeof(double)]=OpCodes.Ldind_R8;
         mTypeHash[typeof(float)]=OpCodes.Ldind_R4;
         */
-        public static string TryReadComplexName = nameof(TryReadComplex);
+
         private static readonly Dictionary<Type, MethodInfo> _typeGetters = new Dictionary<Type, MethodInfo>
         {
             // TODO DateTime, TimeSpan
@@ -40,7 +40,14 @@ namespace MsgPack.Strict
             {typeof(double),  typeof(ValueUnpacker).GetMethod(nameof(TryReadDouble),  BindingFlags.Static | BindingFlags.Public)},
             {typeof(bool),    typeof(ValueUnpacker).GetMethod(nameof(TryReadBool),    BindingFlags.Static | BindingFlags.Public)},
             {typeof(string),  typeof(ValueUnpacker).GetMethod(nameof(TryReadString),  BindingFlags.Static | BindingFlags.Public)},
-            {typeof(decimal), typeof(ValueUnpacker).GetMethod(nameof(TryReadDecimal), BindingFlags.Static | BindingFlags.Public)}
+            {typeof(decimal), typeof(ValueUnpacker).GetMethod(nameof(TryReadDecimal), BindingFlags.Static | BindingFlags.Public)},
+            {typeof(List<>), typeof(ValueUnpacker).GetMethod(nameof(TryReadList), BindingFlags.Static | BindingFlags.Public) },
+            {typeof(IReadOnlyList<>), typeof(ValueUnpacker).GetMethod(nameof(TryReadIReadOnlyList), BindingFlags.Static | BindingFlags.Public) },
+            {typeof(IReadOnlyCollection<>), typeof(ValueUnpacker).GetMethod(nameof(TryReadIReadOnlyCollection), BindingFlags.Static | BindingFlags.Public) },
+            {typeof(ICollection<>), typeof(ValueUnpacker).GetMethod(nameof(TryReadICollection), BindingFlags.Static | BindingFlags.Public) },
+            {typeof(IList<>), typeof(ValueUnpacker).GetMethod(nameof(TryReadIList), BindingFlags.Static | BindingFlags.Public) },
+            {typeof(IEnumerable<>), typeof(ValueUnpacker).GetMethod(nameof(TryReadIEnumerable), BindingFlags.Static | BindingFlags.Public) },
+            
         };
 
         public static MethodInfo GetUnpackerMethodForType(Type type)
@@ -49,7 +56,20 @@ namespace MsgPack.Strict
             if (_typeGetters.TryGetValue(type, out methodInfo))
                 return methodInfo;
 
-            return typeof (ValueUnpacker).GetMethod(nameof(TryReadComplex), BindingFlags.Static | BindingFlags.Public);
+            if (type.IsArray)
+            {
+                var arrType = type.GetElementType();
+                var arrayMethod = typeof(ValueUnpacker).GetMethod(nameof(TryReadArray), BindingFlags.Static | BindingFlags.Public);
+                return arrayMethod.MakeGenericMethod(arrType);
+            }
+
+            var genericType = type.GetGenericType();
+            if (genericType != null)
+                if (_typeGetters.TryGetValue(genericType, out methodInfo))
+                    return methodInfo.MakeGenericMethod(type.GenericTypeArguments[0]);
+
+            var complexMethod =  typeof(ValueUnpacker).GetMethod(nameof(TryReadComplex), BindingFlags.Static | BindingFlags.Public);
+            return complexMethod.MakeGenericMethod(type);
         }
 
         public static bool TryReadSByte(MsgPackUnpacker unpacker, out sbyte value) => unpacker.TryReadSByte(out value);
@@ -75,13 +95,67 @@ namespace MsgPack.Strict
             }
             return decimal.TryParse(s, out value);
         }
-
+        #endregion
+        #region Complex types
         public static bool TryReadComplex<T>(MsgPackUnpacker unpacker, out T value)
         {
             value = (T)StrictDeserialiser.Get(typeof(T)).Deserialise(unpacker);
             return true;
         }
+        #endregion
 
+        #region List/array types
+
+        public static bool TryReadIReadOnlyList<T>(Unpacker unpacker, out IReadOnlyList<T> value)
+        {
+            List<T> val;
+            var res = TryReadList(unpacker, out val);
+            value = val;
+            return res;
+        }
+
+        public static bool TryReadICollection<T>(Unpacker unpacker, out ICollection<T> value)
+        {
+            List<T> val;
+            var res = TryReadList(unpacker, out val);
+            value = val;
+            return res;
+        }
+        public static bool TryReadIEnumerable<T>(Unpacker unpacker, out IEnumerable<T> value)
+        {
+            List<T> val;
+            var res = TryReadList(unpacker, out val);
+            value = val;
+            return res;
+        }
+
+        public static bool TryReadIReadOnlyCollection<T>(Unpacker unpacker, out IReadOnlyCollection<T> value)
+        {
+            List<T> val;
+            var res = TryReadList(unpacker, out val);
+            value = val;
+            return res;
+        }
+
+        public static bool TryReadIList<T>(Unpacker unpacker, out IList<T> value)
+        {
+            List<T> val;
+            var res = TryReadList(unpacker, out val);
+            value = val;
+            return res;
+        }
+
+        public static bool TryReadList<T>(Unpacker unpacker, out List<T> value)
+        {
+            value = (List<T>)StrictDeserialiser.Get(typeof(List<T>)).Deserialise(unpacker);
+            return true;
+        }
+
+        public static bool TryReadArray<T>(Unpacker unpacker, out T[] value)
+        {
+            value = (T[])StrictDeserialiser.Get(typeof(T[])).Deserialise(unpacker);
+            return true;
+        }
         #endregion
     }
 }
