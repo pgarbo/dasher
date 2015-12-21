@@ -106,7 +106,7 @@ namespace MsgPack.Strict
 
         #region List/array types
 
-        public static bool TryReadIReadOnlyList<T>(Unpacker unpacker, out IReadOnlyList<T> value)
+        public static bool TryReadIReadOnlyList<T>(MsgPackUnpacker unpacker, out IReadOnlyList<T> value)
         {
             List<T> val;
             var res = TryReadList(unpacker, out val);
@@ -114,22 +114,14 @@ namespace MsgPack.Strict
             return res;
         }
 
-        public static bool TryReadICollection<T>(Unpacker unpacker, out ICollection<T> value)
+        public static bool TryReadICollection<T>(MsgPackUnpacker unpacker, out ICollection<T> value)
         {
             List<T> val;
             var res = TryReadList(unpacker, out val);
             value = val;
             return res;
         }
-        public static bool TryReadIEnumerable<T>(Unpacker unpacker, out IEnumerable<T> value)
-        {
-            List<T> val;
-            var res = TryReadList(unpacker, out val);
-            value = val;
-            return res;
-        }
-
-        public static bool TryReadIReadOnlyCollection<T>(Unpacker unpacker, out IReadOnlyCollection<T> value)
+        public static bool TryReadIEnumerable<T>(MsgPackUnpacker unpacker, out IEnumerable<T> value)
         {
             List<T> val;
             var res = TryReadList(unpacker, out val);
@@ -137,7 +129,7 @@ namespace MsgPack.Strict
             return res;
         }
 
-        public static bool TryReadIList<T>(Unpacker unpacker, out IList<T> value)
+        public static bool TryReadIReadOnlyCollection<T>(MsgPackUnpacker unpacker, out IReadOnlyCollection<T> value)
         {
             List<T> val;
             var res = TryReadList(unpacker, out val);
@@ -145,13 +137,21 @@ namespace MsgPack.Strict
             return res;
         }
 
-        public static bool TryReadList<T>(Unpacker unpacker, out List<T> value)
+        public static bool TryReadIList<T>(MsgPackUnpacker unpacker, out IList<T> value)
+        {
+            List<T> val;
+            var res = TryReadList(unpacker, out val);
+            value = val;
+            return res;
+        }
+
+        public static bool TryReadList<T>(MsgPackUnpacker unpacker, out List<T> value)
         {
             value = (List<T>)StrictDeserialiser.Get(typeof(List<T>)).Deserialise(unpacker);
             return true;
         }
 
-        public static bool TryReadArray<T>(Unpacker unpacker, out T[] value)
+        public static bool TryReadArray<T>(MsgPackUnpacker unpacker, out T[] value)
         {
             value = (T[])StrictDeserialiser.Get(typeof(T[])).Deserialise(unpacker);
             return true;

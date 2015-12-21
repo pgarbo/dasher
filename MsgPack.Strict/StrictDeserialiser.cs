@@ -340,12 +340,12 @@ namespace MsgPack.Strict
             return (Func<MsgPackUnpacker, object>)method.CreateDelegate(typeof(Func<MsgPackUnpacker, object>));
         }
 
-        private static Func<Unpacker, object> BuildCollectionUnpacker(Type parameterType)
+        private static Func<MsgPackUnpacker, object> BuildCollectionUnpacker(Type parameterType)
         {
             var method = new DynamicMethod(
                 $"CollectionDeserialiser{parameterType.Name}",
                 typeof(object),
-                new[] { typeof(Unpacker) });
+                new[] { typeof(MsgPackUnpacker) });
 
             var ilg = method.GetILGenerator();
             
@@ -362,10 +362,10 @@ namespace MsgPack.Strict
             
             // Lists and arrays are stored as array in msgpack
             // Read msgpack array length first
-            var arrLen = ilg.DeclareLocal(typeof(long));
+            var arrLen = ilg.DeclareLocal(typeof(int));
             ilg.Emit(OpCodes.Ldarg_0); // unpacker
             ilg.Emit(OpCodes.Ldloca, arrLen);
-            ilg.Emit(OpCodes.Callvirt, typeof(Unpacker).GetMethod("ReadArrayLength"));
+            ilg.Emit(OpCodes.Callvirt, typeof(MsgPackUnpacker).GetMethod("TryReadArrayLength"));
             ilg.Emit(OpCodes.Pop); //TODO RESULT
 
             // Declare List or array depending on parameter type. For some reason using only arrays and create new List<T>(array) at the end
@@ -464,18 +464,18 @@ namespace MsgPack.Strict
             // Return the newly constructed object!
             ilg.Emit(OpCodes.Ret);
 
-            return (Func<Unpacker, object>)method.CreateDelegate(typeof(Func<Unpacker, object>));
+            return (Func<MsgPackUnpacker, object>)method.CreateDelegate(typeof(Func<MsgPackUnpacker, object>));
         }
 
         //TODO this is a draft for multidimensional array. 
         //It differs from jagged arrays like int[][]...[] which are nested arrays so we can traverse tree and create one dimension separately
         //in this case we need to return int[,,,...,] at once as a single object
-        private static Func<Unpacker, object> BuildMultiDimArrUnpacker(Type parameterType)
+        private static Func<MsgPackUnpacker, object> BuildMultiDimArrUnpacker(Type parameterType)
         {
             var method = new DynamicMethod(
                 $"CollectionDeserialiser{parameterType.Name}",
                 typeof(object),
-                new[] { typeof(Unpacker) });
+                new[] { typeof(MsgPackUnpacker) });
 
             var ilg = method.GetILGenerator();
             
@@ -499,7 +499,7 @@ namespace MsgPack.Strict
             var arrLen = ilg.DeclareLocal(typeof(long));
             ilg.Emit(OpCodes.Ldarg_0); // unpacker
             ilg.Emit(OpCodes.Ldloca, arrLen);
-            ilg.Emit(OpCodes.Callvirt, typeof(Unpacker).GetMethod("ReadArrayLength"));
+            ilg.Emit(OpCodes.Callvirt, typeof(MsgPackUnpacker).GetMethod("ReadArrayLength"));
             ilg.Emit(OpCodes.Pop); //TODO RESULT
             
             var arrayType = collectionElementType.MakeArrayType(arrDimension);
@@ -571,7 +571,7 @@ namespace MsgPack.Strict
             // Return the newly constructed object!
             ilg.Emit(OpCodes.Ret);
 
-            return (Func<Unpacker, object>)method.CreateDelegate(typeof(Func<Unpacker, object>));
+            return (Func<MsgPackUnpacker, object>)method.CreateDelegate(typeof(Func<MsgPackUnpacker, object>));
         }
 
         
