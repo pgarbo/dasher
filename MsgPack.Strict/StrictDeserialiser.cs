@@ -344,11 +344,11 @@ namespace MsgPack.Strict
         {
             var method = new DynamicMethod(
                 $"CollectionDeserialiser{parameterType.Name}",
-                typeof(object),
-                new[] { typeof(MsgPackUnpacker) });
+                typeof (object),
+                new[] {typeof (MsgPackUnpacker)});
 
             var ilg = method.GetILGenerator();
-            
+
             var isList = parameterType.IsList();
             // Get type for element in array or generic collection. Will use T in further comments for this type
             Type collectionElementType = null;
@@ -363,50 +363,37 @@ namespace MsgPack.Strict
             Action throwException = () =>
             {
                 ilg.Emit(OpCodes.Ldtoken, parameterType);
-                ilg.Emit(OpCodes.Call, typeof(Type).GetMethod("GetTypeFromHandle"));
-                ilg.Emit(OpCodes.Newobj, typeof(StrictDeserialisationException).GetConstructor(new[] { typeof(string), typeof(Type) }));
+                ilg.Emit(OpCodes.Call, typeof (Type).GetMethod("GetTypeFromHandle"));
+                ilg.Emit(OpCodes.Newobj, typeof (StrictDeserialisationException).GetConstructor(new[] {typeof (string), typeof (Type)}));
                 ilg.Emit(OpCodes.Throw);
             };
 
             // Lists and arrays are stored as array in msgpack
             // Read msgpack array length first
-            var arrLen = ilg.DeclareLocal(typeof(int));
+            var arrLen = ilg.DeclareLocal(typeof (int));
             ilg.Emit(OpCodes.Ldarg_0); // unpacker
             ilg.Emit(OpCodes.Ldloca, arrLen);
-            ilg.Emit(OpCodes.Call, typeof(MsgPackUnpacker).GetMethod("TryReadArrayLength"));
+            ilg.Emit(OpCodes.Call, typeof (MsgPackUnpacker).GetMethod("TryReadArrayLength"));
 
             // If false was returned, the data stream ended
             var ifLabel = ilg.DefineLabel();
             ilg.Emit(OpCodes.Brtrue, ifLabel);
             {
-                ilg.Emit(OpCodes.Ldstr, "Data stream ended.");
+                ilg.Emit(OpCodes.Ldstr, "Array length expected.");
                 throwException();
             }
             ilg.MarkLabel(ifLabel);
 
-            // Declare List or array depending on parameter type. For some reason using only arrays and create new List<T>(array) at the end
-            // of the code causes runtime ecxception TODO investigate
-            var typeOfListGeneric = typeof(List<>);
-            var typeOfListConcrete = typeOfListGeneric.MakeGenericType(collectionElementType);
-            var list = ilg.DeclareLocal(typeOfListConcrete);
+            // Declare array            
             var arr = ilg.DeclareLocal(collectionElementType.MakeArrayType());
-            if (isList)
-            {
-                // Create new List<T>() and store in list
-                var listCtor = typeOfListConcrete.GetConstructor(new Type[0]);
-                ilg.Emit(OpCodes.Newobj, listCtor);
-                ilg.Emit(OpCodes.Stloc, list);
-            }
-            else
-            {
-                // Create new array of T and store in arr
-                ilg.Emit(OpCodes.Ldloc, arrLen);
-                ilg.Emit(OpCodes.Newarr, collectionElementType);
-                ilg.Emit(OpCodes.Stloc, arr);
-            }
+            
+            // Create new array of T and store in arr
+            ilg.Emit(OpCodes.Ldloc, arrLen);
+            ilg.Emit(OpCodes.Newarr, collectionElementType);
+            ilg.Emit(OpCodes.Stloc, arr);
 
             // Create for loop like for (int arrIndex = 0; arrIndex < arrLen; arrIndex++)
-            var arrIndex = ilg.DeclareLocal(typeof(int));
+            var arrIndex = ilg.DeclareLocal(typeof (int));
             ilg.Emit(OpCodes.Ldc_I4_0);
             ilg.Emit(OpCodes.Stloc, arrIndex);
             var arrayLoopTest = ilg.DefineLabel();
@@ -434,39 +421,36 @@ namespace MsgPack.Strict
             }
             ilg.MarkLabel(typeGetterSuccess);
 
-            if (isList)
-            {
-                // Call list.Add(readValue);
-                ilg.Emit(OpCodes.Ldloc, list);
-                ilg.Emit(OpCodes.Ldloc, readValue);
-                ilg.Emit(OpCodes.Callvirt, typeOfListConcrete.GetMethod("Add", new[] {collectionElementType}));
-            }
-            else
-            {
-                // Assign readValue to current array element
-                ilg.Emit(OpCodes.Ldloc, arr);
-                ilg.Emit(OpCodes.Ldloc, arrIndex);
-                ilg.Emit(OpCodes.Ldloc, readValue);
-                ilg.Emit(OpCodes.Stelem, collectionElementType);
-            }
+            // Assign readValue to current array element
+            ilg.Emit(OpCodes.Ldloc, arr);
+            ilg.Emit(OpCodes.Ldloc, arrIndex);
+            ilg.Emit(OpCodes.Ldloc, readValue);
+            ilg.Emit(OpCodes.Stelem, collectionElementType);
 
             // Increment the loop index
             ilg.Emit(OpCodes.Ldloc, arrIndex);
             ilg.Emit(OpCodes.Ldc_I4_1);
             ilg.Emit(OpCodes.Add);
             ilg.Emit(OpCodes.Stloc, arrIndex);
+
             // Test for loop condition if arrIndex<arrLen
             ilg.MarkLabel(arrayLoopTest);
             ilg.Emit(OpCodes.Ldloc, arrIndex);
-            ilg.Emit(OpCodes.Ldloc, arrLen); 
+            ilg.Emit(OpCodes.Ldloc, arrLen);
             ilg.Emit(OpCodes.Clt);
             ilg.Emit(OpCodes.Brtrue, arrayLoopStart);
-            
+
             //After loop we need to assign result to local variable for current parameter
 
             if (isList) //need create new List
             {
-                ilg.Emit(OpCodes.Ldloc, list);
+                var typeOfListGeneric = typeof (List<>);
+                var typeOfListConcrete = typeOfListGeneric.MakeGenericType(collectionElementType);
+                var ienum = typeof (IEnumerable<>);
+                var ienumOfType = ienum.MakeGenericType(collectionElementType);
+                var listCtor = typeOfListConcrete.GetConstructor(new Type[] {ienumOfType});
+                ilg.Emit(OpCodes.Ldloc, arr);
+                ilg.Emit(OpCodes.Newobj, listCtor);
             }
             else
             {
@@ -476,7 +460,7 @@ namespace MsgPack.Strict
             // Return the newly constructed object!
             ilg.Emit(OpCodes.Ret);
 
-            return (Func<MsgPackUnpacker, object>)method.CreateDelegate(typeof(Func<MsgPackUnpacker, object>));
+            return (Func<MsgPackUnpacker, object>) method.CreateDelegate(typeof (Func<MsgPackUnpacker, object>));
         }
 
         //TODO this is a draft for multidimensional array. 
