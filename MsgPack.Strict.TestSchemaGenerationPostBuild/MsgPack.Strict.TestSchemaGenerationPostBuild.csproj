@@ -86,7 +86,12 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
-    <None Include="App.messages" />
+    <None Include="App.manifest">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="App.messages">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
@@ -102,9 +107,14 @@
       <Name>MsgPack.Strict</Name>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <Resource Include="App.ico">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>C:\msgpack-strict-schema-generation\MsgPack.Strict.SchemaGenerator\bin\Debug\MsgPack.Strict.SchemaGenerator.exe --targetDir=$(TargetDir) --targetPath=$(TargetPath) --projectDir=$(ProjectDir)</PostBuildEvent>
+    <PostBuildEvent>$(SolutionDir)\MsgPack.Strict.SchemaGenerator\bin\Debug\MsgPack.Strict.SchemaGenerator.exe --targetDir=$(TargetDir) --targetPath=$(TargetPath) --projectDir=$(ProjectDir)</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

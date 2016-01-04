@@ -60,6 +60,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="XMLSchemaGeneratorTests.cs" />
     <Compile Include="SchemaGeneratorTests.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -70,6 +71,9 @@
       <Project>{5c36317e-16d8-4ae9-a6a0-8b878d6a6608}</Project>
       <Name>MsgPack.Strict.SchemaGenerator</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Service Include="{82A7F48D-3B50-4B1E-B82E-3ADA8210C358}" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
